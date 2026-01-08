@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(/Users/adrianoboldarini/7clicks/autocoder/kill_agents.sh)",
+      "Bash(python:*)",
+      "Bash(pkill:*)",
+      "Bash(npm run build:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "context7",
+    "magic",
+    "sequential-thinking",
+    "perplexity-mcp",
+    "playwright",
+    "task-master-ai",
+    "chrome-devtools",
+    "linear"
+  ]
+}

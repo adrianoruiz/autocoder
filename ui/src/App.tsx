@@ -16,6 +16,7 @@ import { DebugLogViewer } from './components/DebugLogViewer'
 import { AgentThought } from './components/AgentThought'
 import { AssistantFAB } from './components/AssistantFAB'
 import { AssistantPanel } from './components/AssistantPanel'
+import { ProcessManager } from './components/ProcessManager'
 import { Plus, Loader2 } from 'lucide-react'
 import type { Feature } from './lib/types'
 
@@ -270,6 +271,9 @@ function App() {
           />
         </>
       )}
+
+      {/* Process Manager - Global (always visible) */}
+      <ProcessManager />
     </div>
   )
 }
