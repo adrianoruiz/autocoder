@@ -113,7 +113,7 @@ export function ProcessManager() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 bg-neo-dark text-white p-4 rounded-xl border-4 border-black shadow-neo-brutal hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+        className="fixed bottom-6 right-24 z-50 bg-black text-white p-4 rounded-full border-4 border-white shadow-neo-brutal hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
         title="Process Manager"
       >
         <Cpu className="w-6 h-6" />
@@ -129,7 +129,7 @@ export function ProcessManager() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white border-4 border-black rounded-xl shadow-neo-brutal max-w-5xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="bg-neo-dark text-white p-4 flex items-center justify-between border-b-4 border-black">
+            <div className="bg-black text-white p-4 flex items-center justify-between border-b-4 border-white">
               <div className="flex items-center gap-3">
                 <Cpu className="w-6 h-6" />
                 <h2 className="text-xl font-bold">Process Manager</h2>
@@ -148,10 +148,10 @@ export function ProcessManager() {
                 </button>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                  title="Close"
+                  className="bg-red-500 hover:bg-red-600 p-2 rounded-lg transition-colors border-2 border-white"
+                  title="Fechar"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-6 h-6 stroke-[3]" />
                 </button>
               </div>
             </div>

@@ -5,7 +5,8 @@
       "Bash(/Users/adrianoboldarini/7clicks/autocoder/kill_agents.sh)",
       "Bash(python:*)",
       "Bash(pkill:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(curl:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
