@@ -3,6 +3,23 @@
 You are continuing work on a long-running autonomous development task.
 This is a FRESH context window - you have no memory of previous sessions.
 
+### PARALLEL MODE (IF APPLICABLE)
+
+If you are running as part of a parallel agent team, you have been assigned an `AGENT_ID`
+environment variable. This enables automatic coordination with other agents:
+
+- **Automatic Feature Claiming**: When you call `feature_get_next`, it automatically claims
+  the feature for your agent ID, preventing other agents from working on the same feature.
+- **Agent Assignment**: Features have an `assigned_agent_id` field that tracks which agent
+  is responsible for each in-progress feature.
+- **Atomic Operations**: All feature claiming uses database-level locking to prevent race
+  conditions when multiple agents try to claim the same feature.
+- **Independent Worktrees**: Each agent works in its own git worktree (isolated filesystem)
+  but shares the same `features.db` (coordinated task queue).
+
+**Your agent ID is detected automatically** - you don't need to pass it explicitly to MCP tools.
+The feature tools will handle coordination with other agents transparently.
+
 ### STEP 1: GET YOUR BEARINGS (MANDATORY)
 
 Start by orienting yourself:
@@ -369,15 +386,18 @@ The feature tools exist to reduce token usage. **DO NOT make exploratory queries
 feature_get_stats
 
 # 2. Get the NEXT feature to work on (one feature only)
+#    In parallel mode, this auto-claims the feature for your agent
 feature_get_next
 
 # 3. Mark a feature as in-progress (call immediately after feature_get_next)
+#    In parallel mode, feature_get_next already marks it in-progress
 feature_mark_in_progress with feature_id={id}
 
 # 4. Get up to 3 random passing features for regression testing
 feature_get_for_regression
 
 # 5. Mark a feature as passing (after verification)
+#    In parallel mode, this also clears agent assignment
 feature_mark_passing with feature_id={id}
 
 # 6. Skip a feature (moves to end of queue) - ONLY when blocked by dependency
@@ -385,6 +405,16 @@ feature_skip with feature_id={id}
 
 # 7. Clear in-progress status (when abandoning a feature)
 feature_clear_in_progress with feature_id={id}
+
+# PARALLEL MODE TOOLS (automatically used when AGENT_ID is set):
+
+# 8. Atomically claim next available feature (with database locking)
+#    Note: feature_get_next calls this automatically in parallel mode
+feature_claim_next with agent_id={agent_id}
+
+# 9. Release a feature back to the queue without marking it passing
+#    Useful when encountering a blocker or needing to switch features
+feature_release with feature_id={id}
 ```
 
 ### RULES:

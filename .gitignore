@@ -1,6 +1,9 @@
 # Agent-generated output directories
 generations/
 
+# Parallel agents worktrees
+.worktrees/
+
 # Log files
 logs/
 *.log

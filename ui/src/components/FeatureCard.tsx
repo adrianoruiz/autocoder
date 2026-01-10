@@ -75,7 +75,7 @@ export function FeatureCard({ feature, onClick, isInProgress }: FeatureCardProps
       </p>
 
       {/* Status */}
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-sm flex-wrap">
         {isInProgress ? (
           <>
             <Loader2 size={16} className="animate-spin text-[var(--color-neo-progress)]" />
@@ -91,6 +91,12 @@ export function FeatureCard({ feature, onClick, isInProgress }: FeatureCardProps
             <Circle size={16} className="text-[var(--color-neo-text-secondary)]" />
             <span className="text-[var(--color-neo-text-secondary)]">Pending</span>
           </>
+        )}
+        {/* Show agent ID if assigned (parallel mode) */}
+        {feature.assigned_agent_id && (
+          <span className="neo-badge bg-purple-600 text-white text-xs">
+            🤖 {feature.assigned_agent_id}
+          </span>
         )}
       </div>
     </button>

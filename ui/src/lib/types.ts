@@ -68,6 +68,7 @@ export interface Feature {
   passes: boolean
   in_progress: boolean
   label: string | null  // Wave/milestone label (null = "Initial")
+  assigned_agent_id: string | null  // Agent working on this feature (parallel mode)
 }
 
 export interface FeatureListResponse {

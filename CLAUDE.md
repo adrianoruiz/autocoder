@@ -45,6 +45,10 @@ python autonomous_agent_demo.py --project-dir my-app  # if registered
 
 # YOLO mode: rapid prototyping without browser testing
 python autonomous_agent_demo.py --project-dir my-app --yolo
+
+# Parallel mode: run multiple agents simultaneously (2-10 agents)
+python autonomous_agent_demo.py --project-dir my-app --num-agents 3
+python autonomous_agent_demo.py --project-dir my-app --num-agents 5 --yolo
 ```
 
 ### YOLO Mode (Rapid Prototyping)
@@ -77,6 +81,45 @@ python autonomous_agent_demo.py --project-dir my-app --yolo
 
 **When to use:** Early prototyping when you want to quickly scaffold features without verification overhead. Switch back to standard mode for production-quality development.
 
+### Parallel Mode (Multiple Agents)
+
+Parallel mode allows running multiple autonomous agents simultaneously to accelerate development:
+
+```bash
+# Run 3 agents in parallel
+python autonomous_agent_demo.py --project-dir my-app --num-agents 3
+
+# Parallel + YOLO mode for maximum speed
+python autonomous_agent_demo.py --project-dir my-app --num-agents 5 --yolo
+```
+
+**How it works:**
+- Each agent runs in its own git worktree (isolated filesystem)
+- All agents share the same `features.db` (coordinated task queue)
+- Features are atomically claimed using database-level locking
+- Each agent has a unique `AGENT_ID` environment variable
+- Agents coordinate through the `assigned_agent_id` database field
+
+**Architecture:**
+- `parallel_agents.py` - `ParallelAgentOrchestrator` manages multiple agent processes
+- `worktree.py` - `WorktreeManager` handles git worktree creation and cleanup
+- `parallel_agent_runner.py` - Entry point for individual parallel agents
+- `.worktrees/agent_*/` - Isolated working directories for each agent (git-ignored)
+
+**Feature coordination:**
+- `feature_get_next` auto-claims features for the calling agent
+- `feature_claim_next` provides atomic claiming with database locks
+- `feature_release` releases features back to the queue
+- `feature_mark_passing` clears agent assignment on completion
+
+**Implementation details:**
+- SQLAlchemy's `.with_for_update()` prevents race conditions
+- Shared `features.db` via symlink or `PROJECT_DIR` environment variable
+- Each agent's `AGENT_ID` is auto-detected from environment
+- Worktrees are merged back to main branch on completion
+
+**When to use:** Accelerate development on large feature sets where work can be parallelized (2-10 agents recommended).
+
 ### React UI (in ui/ directory)
 
 ```bash
@@ -101,6 +144,9 @@ npm run lint     # Run ESLint
 - `prompts.py` - Prompt template loading with project-specific fallback
 - `progress.py` - Progress tracking, database queries, webhook notifications
 - `registry.py` - Project registry for mapping names to paths (cross-platform)
+- `parallel_agents.py` - ParallelAgentOrchestrator for managing multiple agent processes
+- `worktree.py` - WorktreeManager for git worktree creation and cleanup
+- `parallel_agent_runner.py` - Entry point for individual parallel agents
 
 ### Project Registry
 
@@ -127,15 +173,17 @@ The FastAPI server provides REST endpoints for the UI:
 Features are stored in SQLite (`features.db`) via SQLAlchemy. The agent interacts with features through an MCP server:
 
 - `mcp_server/feature_mcp.py` - MCP server exposing feature management tools
-- `api/database.py` - SQLAlchemy models (Feature table with priority, category, name, description, steps, passes)
+- `api/database.py` - SQLAlchemy models (Feature table with priority, type, category, name, description, steps, passes, in_progress, label, assigned_agent_id)
 
 MCP tools available to the agent:
 - `feature_get_stats` - Progress statistics
-- `feature_get_next` - Get highest-priority pending feature
+- `feature_get_next` - Get highest-priority pending feature (auto-claims in parallel mode)
 - `feature_get_for_regression` - Random passing features for regression testing
-- `feature_mark_passing` - Mark feature complete
+- `feature_mark_passing` - Mark feature complete (clears agent assignment)
 - `feature_skip` - Move feature to end of queue
 - `feature_create_bulk` - Initialize all features (used by initializer)
+- `feature_claim_next` - Atomically claim next feature (parallel mode)
+- `feature_release` - Release feature back to queue (parallel mode)
 
 ### React UI (ui/)
 
