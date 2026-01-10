@@ -157,14 +157,61 @@ Use the feature_skip tool with feature_id={id}
 
 Document the SPECIFIC external blocker in `claude-progress.txt`. "Functionality not built" is NEVER a valid reason.
 
+### STEP 4.5: TRACK STEP PROGRESS (REAL-TIME UI UPDATES)
+
+**NEW CAPABILITY:** Features now have step-by-step progress tracking that updates the UI in real-time!
+
+Each feature has multiple implementation/test steps. As you work through them:
+
+1. **Mark step as started** when you begin working on it:
+```
+Use the feature_step_mark_started tool with feature_id={id}, step_index={0-based index}
+```
+
+2. **Mark step as completed** when you finish it:
+```
+Use the feature_step_mark_completed tool with feature_id={id}, step_index={0-based index}, notes="Brief description of what was done"
+```
+
+**Example workflow:**
+```
+# Feature #42 has 5 steps
+# Starting step 0: "Create user authentication API endpoint"
+feature_step_mark_started with feature_id=42, step_index=0
+
+# ... implement the code ...
+
+# Completed step 0
+feature_step_mark_completed with feature_id=42, step_index=0, notes="Created /api/auth/login endpoint with JWT"
+
+# Starting step 1: "Create login UI component"
+feature_step_mark_started with feature_id=42, step_index=1
+
+# ... and so on ...
+```
+
+**Benefits:**
+- Web UI shows real-time progress: "Step 2/5 - Creating login form"
+- Product owner can see exactly what you're working on
+- Progress bars update as you complete steps
+- Notes help document what was done
+
+**You can also check step progress:**
+```
+Use the feature_get_progress_details tool with feature_id={id}
+```
+
+This returns all steps with their completion status, timestamps, and notes.
+
 ### STEP 5: IMPLEMENT THE FEATURE
 
 Implement the chosen feature thoroughly:
 
 1. Write the code (frontend and/or backend as needed)
-2. Test manually using browser automation (see Step 6)
-3. Fix any issues discovered
-4. Verify the feature works end-to-end
+2. **Mark each step started/completed as you go** (see Step 4.5)
+3. Test manually using browser automation (see Step 6)
+4. Fix any issues discovered
+5. Verify the feature works end-to-end
 
 ### STEP 6: VERIFY WITH BROWSER AUTOMATION
 
@@ -406,14 +453,25 @@ feature_skip with feature_id={id}
 # 7. Clear in-progress status (when abandoning a feature)
 feature_clear_in_progress with feature_id={id}
 
+# STEP PROGRESS TRACKING TOOLS (for real-time UI updates):
+
+# 8. Mark a step as started (call when you begin working on a step)
+feature_step_mark_started with feature_id={id}, step_index={0-based index}
+
+# 9. Mark a step as completed (call when you finish a step)
+feature_step_mark_completed with feature_id={id}, step_index={0-based index}, notes="What was done"
+
+# 10. Get detailed step-by-step progress for a feature
+feature_get_progress_details with feature_id={id}
+
 # PARALLEL MODE TOOLS (automatically used when AGENT_ID is set):
 
-# 8. Atomically claim next available feature (with database locking)
-#    Note: feature_get_next calls this automatically in parallel mode
+# 11. Atomically claim next available feature (with database locking)
+#     Note: feature_get_next calls this automatically in parallel mode
 feature_claim_next with agent_id={agent_id}
 
-# 9. Release a feature back to the queue without marking it passing
-#    Useful when encountering a blocker or needing to switch features
+# 12. Release a feature back to the queue without marking it passing
+#     Useful when encountering a blocker or needing to switch features
 feature_release with feature_id={id}
 ```
 
