@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { FeatureCard } from './FeatureCard'
 import type { Feature } from '../lib/types'
 
@@ -22,6 +23,8 @@ export function KanbanColumn({
   color,
   onFeatureClick,
 }: KanbanColumnProps) {
+  const { t } = useTranslation()
+
   return (
     <div
       className="neo-card overflow-hidden"
@@ -42,7 +45,7 @@ export function KanbanColumn({
       <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto bg-[var(--color-neo-bg)]">
         {features.length === 0 ? (
           <div className="text-center py-8 text-[var(--color-neo-text-secondary)]">
-            No features
+            {t('common.noFeatures')}
           </div>
         ) : (
           features.map((feature, index) => (

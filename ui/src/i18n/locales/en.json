@@ -1,0 +1,79 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "create": "Create",
+    "delete": "Delete",
+    "save": "Save",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "retry": "Retry",
+    "loading": "Loading...",
+    "noFeatures": "No features"
+  },
+  "app": {
+    "title": "AutoCoder",
+    "addFeature": "Add Feature",
+    "shortcutN": "N",
+    "welcome": {
+      "title": "Welcome to AutoCoder",
+      "description": "Select a project from the dropdown above or create a new one to get started."
+    },
+    "initializing": {
+      "title": "Initializing Features...",
+      "description": "The agent is reading your spec and creating features. This may take a moment."
+    }
+  },
+  "kanban": {
+    "pending": "Pending",
+    "inProgress": "In Progress",
+    "done": "Done"
+  },
+  "progress": {
+    "title": "Progress",
+    "live": "Live",
+    "offline": "Offline",
+    "passing": "Passing",
+    "total": "Total"
+  },
+  "agent": {
+    "yolo": "YOLO",
+    "yoloTooltip": "YOLO Mode: Skip testing for rapid prototyping",
+    "startYolo": "Start Agent (YOLO Mode)",
+    "start": "Start Agent",
+    "pause": "Pause Agent",
+    "stop": "Stop Agent",
+    "resume": "Resume Agent",
+    "status": {
+      "stopped": "Stopped",
+      "running": "Running",
+      "paused": "Paused",
+      "crashed": "Crashed"
+    }
+  },
+  "feature": {
+    "addFeature": "Add Feature",
+    "createFeature": "Create Feature",
+    "category": "Category",
+    "categoryPlaceholder": "e.g., Authentication, UI, API",
+    "priority": "Priority",
+    "priorityPlaceholder": "Auto",
+    "name": "Feature Name",
+    "namePlaceholder": "e.g., User login form",
+    "description": "Description",
+    "descriptionPlaceholder": "Describe what this feature should do...",
+    "testSteps": "Test Steps (Optional)",
+    "stepPlaceholder": "Describe this step...",
+    "addStep": "Add Step",
+    "status": {
+      "processing": "Processing...",
+      "complete": "Complete",
+      "pending": "Pending"
+    }
+  },
+  "language": {
+    "select": "Language",
+    "en": "English",
+    "ptBR": "Portugu\u00eas (BR)"
+  }
+}

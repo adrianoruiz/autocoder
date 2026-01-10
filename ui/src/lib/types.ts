@@ -66,6 +66,7 @@ export interface Feature {
   steps: string[]
   passes: boolean
   in_progress: boolean
+  label: string | null  // Wave/milestone label (null = "Initial")
 }
 
 export interface FeatureListResponse {
@@ -80,6 +81,7 @@ export interface FeatureCreate {
   description: string
   steps: string[]
   priority?: number
+  label?: string  // Wave/milestone label
 }
 
 // Agent types
@@ -295,3 +297,65 @@ export type AssistantChatServerMessage =
   | AssistantChatErrorMessage
   | AssistantChatConversationCreatedMessage
   | AssistantChatPongMessage
+
+// ============================================================================
+// Add Features Chat Types
+// ============================================================================
+
+export interface AddFeaturesChatTextMessage {
+  type: 'text'
+  content: string
+}
+
+export interface AddFeaturesChatQuestionMessage {
+  type: 'question'
+  questions: SpecQuestion[]
+  tool_id?: string
+}
+
+export interface AddFeaturesChatFeaturesCreatedMessage {
+  type: 'features_created'
+  count: number
+  label: string
+}
+
+export interface AddFeaturesChatSpecUpdatedMessage {
+  type: 'spec_updated'
+  path: string
+}
+
+export interface AddFeaturesChatCompleteMessage {
+  type: 'complete'
+}
+
+export interface AddFeaturesChatErrorMessage {
+  type: 'error'
+  content: string
+}
+
+export interface AddFeaturesChatPongMessage {
+  type: 'pong'
+}
+
+export interface AddFeaturesChatResponseDoneMessage {
+  type: 'response_done'
+}
+
+export type AddFeaturesChatServerMessage =
+  | AddFeaturesChatTextMessage
+  | AddFeaturesChatQuestionMessage
+  | AddFeaturesChatFeaturesCreatedMessage
+  | AddFeaturesChatSpecUpdatedMessage
+  | AddFeaturesChatCompleteMessage
+  | AddFeaturesChatErrorMessage
+  | AddFeaturesChatPongMessage
+  | AddFeaturesChatResponseDoneMessage
+
+// Labels/milestones for grouping features
+export interface FeatureLabel {
+  label: string | null  // null = "Initial"
+  count: number
+  passing: number
+  pending: number
+  in_progress: number
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Play, Pause, Square, Loader2, Zap } from 'lucide-react'
 import {
   useStartAgent,
@@ -15,6 +16,7 @@ interface AgentControlProps {
 }
 
 export function AgentControl({ projectName, status, yoloMode = false }: AgentControlProps) {
+  const { t } = useTranslation()
   const [yoloEnabled, setYoloEnabled] = useState(false)
 
   const startAgent = useStartAgent(projectName)
@@ -43,7 +45,7 @@ export function AgentControl({ projectName, status, yoloMode = false }: AgentCon
         <div className="flex items-center gap-1 px-2 py-1 bg-[var(--color-neo-pending)] border-3 border-[var(--color-neo-border)]">
           <Zap size={14} className="text-yellow-900" />
           <span className="font-display font-bold text-xs uppercase text-yellow-900">
-            YOLO
+            {t('agent.yolo')}
           </span>
         </div>
       )}
@@ -58,7 +60,7 @@ export function AgentControl({ projectName, status, yoloMode = false }: AgentCon
               className={`neo-btn text-sm py-2 px-3 ${
                 yoloEnabled ? 'neo-btn-warning' : 'neo-btn-secondary'
               }`}
-              title="YOLO Mode: Skip testing for rapid prototyping"
+              title={t('agent.yoloTooltip')}
             >
               <Zap size={18} className={yoloEnabled ? 'text-yellow-900' : ''} />
             </button>
@@ -66,7 +68,7 @@ export function AgentControl({ projectName, status, yoloMode = false }: AgentCon
               onClick={handleStart}
               disabled={isLoading}
               className="neo-btn neo-btn-success text-sm py-2 px-3"
-              title={yoloEnabled ? "Start Agent (YOLO Mode)" : "Start Agent"}
+              title={yoloEnabled ? t('agent.startYolo') : t('agent.start')}
             >
               {isLoading ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -81,7 +83,7 @@ export function AgentControl({ projectName, status, yoloMode = false }: AgentCon
               onClick={handlePause}
               disabled={isLoading}
               className="neo-btn neo-btn-warning text-sm py-2 px-3"
-              title="Pause Agent"
+              title={t('agent.pause')}
             >
               {isLoading ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -93,7 +95,7 @@ export function AgentControl({ projectName, status, yoloMode = false }: AgentCon
               onClick={handleStop}
               disabled={isLoading}
               className="neo-btn neo-btn-danger text-sm py-2 px-3"
-              title="Stop Agent"
+              title={t('agent.stop')}
             >
               <Square size={18} />
             </button>
@@ -104,7 +106,7 @@ export function AgentControl({ projectName, status, yoloMode = false }: AgentCon
               onClick={handleResume}
               disabled={isLoading}
               className="neo-btn neo-btn-success text-sm py-2 px-3"
-              title="Resume Agent"
+              title={t('agent.resume')}
             >
               {isLoading ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -116,7 +118,7 @@ export function AgentControl({ projectName, status, yoloMode = false }: AgentCon
               onClick={handleStop}
               disabled={isLoading}
               className="neo-btn neo-btn-danger text-sm py-2 px-3"
-              title="Stop Agent"
+              title={t('agent.stop')}
             >
               <Square size={18} />
             </button>
@@ -128,25 +130,27 @@ export function AgentControl({ projectName, status, yoloMode = false }: AgentCon
 }
 
 function StatusIndicator({ status }: { status: AgentStatus }) {
+  const { t } = useTranslation()
+
   const statusConfig = {
     stopped: {
       color: 'var(--color-neo-text-secondary)',
-      label: 'Stopped',
+      labelKey: 'agent.status.stopped',
       pulse: false,
     },
     running: {
       color: 'var(--color-neo-done)',
-      label: 'Running',
+      labelKey: 'agent.status.running',
       pulse: true,
     },
     paused: {
       color: 'var(--color-neo-pending)',
-      label: 'Paused',
+      labelKey: 'agent.status.paused',
       pulse: false,
     },
     crashed: {
       color: 'var(--color-neo-danger)',
-      label: 'Crashed',
+      labelKey: 'agent.status.crashed',
       pulse: true,
     },
   }
@@ -163,7 +167,7 @@ function StatusIndicator({ status }: { status: AgentStatus }) {
         className="font-display font-bold text-sm uppercase"
         style={{ color: config.color }}
       >
-        {config.label}
+        {t(config.labelKey)}
       </span>
     </div>
   )

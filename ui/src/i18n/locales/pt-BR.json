@@ -1,0 +1,79 @@
+{
+  "common": {
+    "cancel": "Cancelar",
+    "create": "Criar",
+    "delete": "Excluir",
+    "save": "Salvar",
+    "close": "Fechar",
+    "back": "Voltar",
+    "next": "Pr\u00f3ximo",
+    "retry": "Tentar Novamente",
+    "loading": "Carregando...",
+    "noFeatures": "Nenhuma feature"
+  },
+  "app": {
+    "title": "AutoCoder",
+    "addFeature": "Adicionar Feature",
+    "shortcutN": "N",
+    "welcome": {
+      "title": "Bem-vindo ao AutoCoder",
+      "description": "Selecione um projeto no menu acima ou crie um novo para come\u00e7ar."
+    },
+    "initializing": {
+      "title": "Inicializando Features...",
+      "description": "O agente est\u00e1 lendo sua especifica\u00e7\u00e3o e criando features. Isso pode levar um momento."
+    }
+  },
+  "kanban": {
+    "pending": "Pendente",
+    "inProgress": "Em Progresso",
+    "done": "Conclu\u00eddo"
+  },
+  "progress": {
+    "title": "Progresso",
+    "live": "Ao Vivo",
+    "offline": "Offline",
+    "passing": "Passando",
+    "total": "Total"
+  },
+  "agent": {
+    "yolo": "YOLO",
+    "yoloTooltip": "Modo YOLO: Pular testes para prototipa\u00e7\u00e3o r\u00e1pida",
+    "startYolo": "Iniciar Agente (Modo YOLO)",
+    "start": "Iniciar Agente",
+    "pause": "Pausar Agente",
+    "stop": "Parar Agente",
+    "resume": "Retomar Agente",
+    "status": {
+      "stopped": "Parado",
+      "running": "Executando",
+      "paused": "Pausado",
+      "crashed": "Falhou"
+    }
+  },
+  "feature": {
+    "addFeature": "Adicionar Feature",
+    "createFeature": "Criar Feature",
+    "category": "Categoria",
+    "categoryPlaceholder": "ex: Autentica\u00e7\u00e3o, UI, API",
+    "priority": "Prioridade",
+    "priorityPlaceholder": "Auto",
+    "name": "Nome da Feature",
+    "namePlaceholder": "ex: Formul\u00e1rio de login",
+    "description": "Descri\u00e7\u00e3o",
+    "descriptionPlaceholder": "Descreva o que esta feature deve fazer...",
+    "testSteps": "Passos de Teste (Opcional)",
+    "stepPlaceholder": "Descreva este passo...",
+    "addStep": "Adicionar Passo",
+    "status": {
+      "processing": "Processando...",
+      "complete": "Completo",
+      "pending": "Pendente"
+    }
+  },
+  "language": {
+    "select": "Idioma",
+    "en": "English",
+    "ptBR": "Portugu\u00eas (BR)"
+  }
+}

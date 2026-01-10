@@ -1,4 +1,5 @@
 import { useState, useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Plus, Trash2, Loader2, AlertCircle } from 'lucide-react'
 import { useCreateFeature } from '../hooks/useProjects'
 
@@ -13,6 +14,7 @@ interface AddFeatureFormProps {
 }
 
 export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
+  const { t } = useTranslation()
   const formId = useId()
   const [category, setCategory] = useState('')
   const [name, setName] = useState('')
@@ -73,7 +75,7 @@ export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b-3 border-[var(--color-neo-border)]">
           <h2 className="font-display text-2xl font-bold">
-            Add Feature
+            {t('feature.addFeature')}
           </h2>
           <button
             onClick={onClose}
@@ -104,26 +106,26 @@ export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="block font-display font-bold mb-2 uppercase text-sm">
-                Category
+                {t('feature.category')}
               </label>
               <input
                 type="text"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="e.g., Authentication, UI, API"
+                placeholder={t('feature.categoryPlaceholder')}
                 className="neo-input"
                 required
               />
             </div>
             <div className="w-32">
               <label className="block font-display font-bold mb-2 uppercase text-sm">
-                Priority
+                {t('feature.priority')}
               </label>
               <input
                 type="number"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                placeholder="Auto"
+                placeholder={t('feature.priorityPlaceholder')}
                 min="1"
                 className="neo-input"
               />
@@ -133,13 +135,13 @@ export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
           {/* Name */}
           <div>
             <label className="block font-display font-bold mb-2 uppercase text-sm">
-              Feature Name
+              {t('feature.name')}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., User login form"
+              placeholder={t('feature.namePlaceholder')}
               className="neo-input"
               required
             />
@@ -148,12 +150,12 @@ export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
           {/* Description */}
           <div>
             <label className="block font-display font-bold mb-2 uppercase text-sm">
-              Description
+              {t('feature.description')}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what this feature should do..."
+              placeholder={t('feature.descriptionPlaceholder')}
               className="neo-input min-h-[100px] resize-y"
               required
             />
@@ -162,7 +164,7 @@ export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
           {/* Steps */}
           <div>
             <label className="block font-display font-bold mb-2 uppercase text-sm">
-              Test Steps (Optional)
+              {t('feature.testSteps')}
             </label>
             <div className="space-y-2">
               {steps.map((step, index) => (
@@ -174,7 +176,7 @@ export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
                     type="text"
                     value={step.value}
                     onChange={(e) => handleStepChange(step.id, e.target.value)}
-                    placeholder="Describe this step..."
+                    placeholder={t('feature.stepPlaceholder')}
                     className="neo-input flex-1"
                   />
                   {steps.length > 1 && (
@@ -195,7 +197,7 @@ export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
               className="neo-btn neo-btn-ghost mt-2 text-sm"
             >
               <Plus size={16} />
-              Add Step
+              {t('feature.addStep')}
             </button>
           </div>
 
@@ -211,7 +213,7 @@ export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
               ) : (
                 <>
                   <Plus size={18} />
-                  Create Feature
+                  {t('feature.createFeature')}
                 </>
               )}
             </button>
@@ -220,7 +222,7 @@ export function AddFeatureForm({ projectName, onClose }: AddFeatureFormProps) {
               onClick={onClose}
               className="neo-btn neo-btn-ghost"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </form>

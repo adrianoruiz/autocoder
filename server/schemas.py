@@ -239,3 +239,19 @@ class CreateDirectoryRequest(BaseModel):
     """Request to create a new directory."""
     parent_path: str
     name: str = Field(..., min_length=1, max_length=255)
+
+
+# ============================================================================
+# IDE Schemas
+# ============================================================================
+
+class OpenIDERequest(BaseModel):
+    """Request to open a project in an IDE."""
+    ide: Literal["vscode", "windsurf", "antigravity"] = "vscode"
+
+
+class OpenIDEResponse(BaseModel):
+    """Response for opening project in IDE."""
+    success: bool
+    ide: str
+    message: str = ""

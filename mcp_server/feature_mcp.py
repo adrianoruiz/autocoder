@@ -14,7 +14,9 @@ Tools:
 - feature_skip: Skip a feature (move to end of queue)
 - feature_mark_in_progress: Mark a feature as in-progress
 - feature_clear_in_progress: Clear in-progress status
-- feature_create_bulk: Create multiple features at once
+- feature_create_bulk: Create multiple features at once (with optional label)
+- feature_get_existing: Get existing features to avoid duplicates
+- feature_get_labels: Get all unique labels/milestones with counts
 """
 
 import json
@@ -358,7 +360,8 @@ def feature_clear_in_progress(
 
 @mcp.tool()
 def feature_create_bulk(
-    features: Annotated[list[dict], Field(description="List of features to create, each with category, name, description, and steps")]
+    features: Annotated[list[dict], Field(description="List of features to create, each with category, name, description, and steps")],
+    label: Annotated[str | None, Field(default=None, description="Optional label/milestone for grouping features (e.g., 'Wave-2024-01-10-1430')")] = None
 ) -> str:
     """Create multiple features in a single operation.
 
@@ -366,7 +369,8 @@ def feature_create_bulk(
     All features start with passes=false.
 
     This is typically used by the initializer agent to set up the initial
-    feature list from the app specification.
+    feature list from the app specification, or by the add-features assistant
+    to add new features to an existing project.
 
     Args:
         features: List of features to create, each with:
@@ -374,9 +378,10 @@ def feature_create_bulk(
             - name (str): Feature name
             - description (str): Detailed description
             - steps (list[str]): Implementation/test steps
+        label: Optional label/milestone for grouping features (e.g., 'Wave-2024-01-10-1430')
 
     Returns:
-        JSON with: created (int) - number of features created
+        JSON with: created (int) - number of features created, label (str|null)
     """
     session = get_session()
     try:
@@ -399,16 +404,90 @@ def feature_create_bulk(
                 description=feature_data["description"],
                 steps=feature_data["steps"],
                 passes=False,
+                label=label,
             )
             session.add(db_feature)
             created_count += 1
 
         session.commit()
 
-        return json.dumps({"created": created_count}, indent=2)
+        return json.dumps({"created": created_count, "label": label}, indent=2)
     except Exception as e:
         session.rollback()
         return json.dumps({"error": str(e)})
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_get_existing() -> str:
+    """Get all existing feature names to avoid creating duplicates.
+
+    Returns a list of all feature names currently in the database.
+    Use this before creating new features to check for duplicates.
+
+    Returns:
+        JSON with: features (list of {id, name, category, label, passes})
+    """
+    session = get_session()
+    try:
+        features = session.query(Feature).all()
+        return json.dumps({
+            "features": [
+                {
+                    "id": f.id,
+                    "name": f.name,
+                    "category": f.category,
+                    "label": f.label,
+                    "passes": f.passes
+                }
+                for f in features
+            ],
+            "count": len(features)
+        }, indent=2)
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_get_labels() -> str:
+    """Get all unique labels/milestones with their feature counts.
+
+    Returns:
+        JSON with: labels (list of {label, count, passing, pending, in_progress})
+    """
+    session = get_session()
+    try:
+        # Get all features grouped by label
+        features = session.query(Feature).all()
+
+        label_stats: dict[str | None, dict] = {}
+        for f in features:
+            label_key = f.label  # None for "Initial"
+            if label_key not in label_stats:
+                label_stats[label_key] = {
+                    "label": label_key,
+                    "count": 0,
+                    "passing": 0,
+                    "pending": 0,
+                    "in_progress": 0
+                }
+
+            label_stats[label_key]["count"] += 1
+            if f.passes:
+                label_stats[label_key]["passing"] += 1
+            elif f.in_progress:
+                label_stats[label_key]["in_progress"] += 1
+            else:
+                label_stats[label_key]["pending"] += 1
+
+        # Sort: None (Initial) first, then by label name
+        sorted_labels = sorted(
+            label_stats.values(),
+            key=lambda x: (x["label"] is not None, x["label"] or "")
+        )
+
+        return json.dumps({"labels": sorted_labels}, indent=2)
     finally:
         session.close()
 

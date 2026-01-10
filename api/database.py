@@ -29,6 +29,7 @@ class Feature(Base):
     steps = Column(JSON, nullable=False)  # Stored as JSON array
     passes = Column(Boolean, default=False, index=True)
     in_progress = Column(Boolean, default=False, index=True)
+    label = Column(String(100), nullable=True, default=None, index=True)  # Wave/milestone label
 
     def to_dict(self) -> dict:
         """Convert feature to dictionary for JSON serialization."""
@@ -41,6 +42,7 @@ class Feature(Base):
             "steps": self.steps,
             "passes": self.passes,
             "in_progress": self.in_progress,
+            "label": self.label,
         }
 
 
@@ -73,6 +75,21 @@ def _migrate_add_in_progress_column(engine) -> None:
             conn.commit()
 
 
+def _migrate_add_label_column(engine) -> None:
+    """Add label column to existing databases that don't have it."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        # Check if column exists
+        result = conn.execute(text("PRAGMA table_info(features)"))
+        columns = [row[1] for row in result.fetchall()]
+
+        if "label" not in columns:
+            # Add the column with default NULL
+            conn.execute(text("ALTER TABLE features ADD COLUMN label VARCHAR(100) DEFAULT NULL"))
+            conn.commit()
+
+
 def create_database(project_dir: Path) -> tuple:
     """
     Create database and return engine + session maker.
@@ -87,8 +104,9 @@ def create_database(project_dir: Path) -> tuple:
     engine = create_engine(db_url, connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
 
-    # Migrate existing databases to add in_progress column
+    # Migrate existing databases to add new columns
     _migrate_add_in_progress_column(engine)
+    _migrate_add_label_column(engine)
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return engine, SessionLocal

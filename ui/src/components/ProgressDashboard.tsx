@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Wifi, WifiOff } from 'lucide-react'
 
 interface ProgressDashboardProps {
@@ -13,22 +14,24 @@ export function ProgressDashboard({
   percentage,
   isConnected,
 }: ProgressDashboardProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="neo-card p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display text-xl font-bold uppercase">
-          Progress
+          {t('progress.title')}
         </h2>
         <div className="flex items-center gap-2">
           {isConnected ? (
             <>
               <Wifi size={16} className="text-[var(--color-neo-done)]" />
-              <span className="text-sm text-[var(--color-neo-done)]">Live</span>
+              <span className="text-sm text-[var(--color-neo-done)]">{t('progress.live')}</span>
             </>
           ) : (
             <>
               <WifiOff size={16} className="text-[var(--color-neo-danger)]" />
-              <span className="text-sm text-[var(--color-neo-danger)]">Offline</span>
+              <span className="text-sm text-[var(--color-neo-danger)]">{t('progress.offline')}</span>
             </>
           )}
         </div>
@@ -59,7 +62,7 @@ export function ProgressDashboard({
             {passing}
           </span>
           <span className="block text-sm text-[var(--color-neo-text-secondary)] uppercase">
-            Passing
+            {t('progress.passing')}
           </span>
         </div>
         <div className="text-4xl text-[var(--color-neo-text-secondary)]">/</div>
@@ -68,7 +71,7 @@ export function ProgressDashboard({
             {total}
           </span>
           <span className="block text-sm text-[var(--color-neo-text-secondary)] uppercase">
-            Total
+            {t('progress.total')}
           </span>
         </div>
       </div>

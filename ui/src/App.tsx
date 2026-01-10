@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useProjects, useFeatures, useAgentStatus } from './hooks/useProjects'
 import { useProjectWebSocket } from './hooks/useWebSocket'
 import { useFeatureSound } from './hooks/useFeatureSound'
@@ -6,21 +7,26 @@ import { useCelebration } from './hooks/useCelebration'
 
 const STORAGE_KEY = 'autocoder-selected-project'
 import { ProjectSelector } from './components/ProjectSelector'
+import { LanguageSelector } from './components/LanguageSelector'
 import { KanbanBoard } from './components/KanbanBoard'
 import { AgentControl } from './components/AgentControl'
 import { ProgressDashboard } from './components/ProgressDashboard'
 import { SetupWizard } from './components/SetupWizard'
 import { AddFeatureForm } from './components/AddFeatureForm'
+import { AddFeaturesChat } from './components/AddFeaturesChat'
 import { FeatureModal } from './components/FeatureModal'
 import { DebugLogViewer } from './components/DebugLogViewer'
 import { AgentThought } from './components/AgentThought'
 import { AssistantFAB } from './components/AssistantFAB'
 import { AssistantPanel } from './components/AssistantPanel'
 import { ProcessManager } from './components/ProcessManager'
-import { Plus, Loader2 } from 'lucide-react'
+import { OpenInIDEButton } from './components/OpenInIDEButton'
+import { Plus, Loader2, Sparkles } from 'lucide-react'
 import type { Feature } from './lib/types'
 
 function App() {
+  const { t } = useTranslation()
+
   // Initialize selected project from localStorage
   const [selectedProject, setSelectedProject] = useState<string | null>(() => {
     try {
@@ -30,6 +36,7 @@ function App() {
     }
   })
   const [showAddFeature, setShowAddFeature] = useState(false)
+  const [showAddFeaturesChat, setShowAddFeaturesChat] = useState(false)
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null)
   const [setupComplete, setSetupComplete] = useState(true) // Start optimistic
   const [debugOpen, setDebugOpen] = useState(false)
@@ -94,9 +101,17 @@ function App() {
         setAssistantOpen(prev => !prev)
       }
 
+      // I : Open Add Features with AI (when project selected)
+      if ((e.key === 'i' || e.key === 'I') && selectedProject) {
+        e.preventDefault()
+        setShowAddFeaturesChat(true)
+      }
+
       // Escape : Close modals
       if (e.key === 'Escape') {
-        if (assistantOpen) {
+        if (showAddFeaturesChat) {
+          setShowAddFeaturesChat(false)
+        } else if (assistantOpen) {
           setAssistantOpen(false)
         } else if (showAddFeature) {
           setShowAddFeature(false)
@@ -110,7 +125,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedProject, showAddFeature, selectedFeature, debugOpen, assistantOpen])
+  }, [selectedProject, showAddFeature, showAddFeaturesChat, selectedFeature, debugOpen, assistantOpen])
 
   // Combine WebSocket progress with feature data
   const progress = wsState.progress.total > 0 ? wsState.progress : {
@@ -135,11 +150,13 @@ function App() {
           <div className="flex items-center justify-between">
             {/* Logo and Title */}
             <h1 className="font-display text-2xl font-bold tracking-tight uppercase">
-              AutoCoder
+              {t('app.title')}
             </h1>
 
             {/* Controls */}
             <div className="flex items-center gap-4">
+              <LanguageSelector />
+
               <ProjectSelector
                 projects={projects ?? []}
                 selectedProject={selectedProject}
@@ -149,15 +166,29 @@ function App() {
 
               {selectedProject && (
                 <>
+                  <OpenInIDEButton projectName={selectedProject} />
+
+                  <button
+                    onClick={() => setShowAddFeaturesChat(true)}
+                    className="neo-btn bg-gradient-to-r from-purple-500 to-pink-500 text-white border-2 border-[var(--color-neo-border)] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-sm"
+                    title="Add Features with AI (Press I)"
+                  >
+                    <Sparkles size={18} />
+                    Add with AI
+                    <kbd className="ml-1.5 px-1.5 py-0.5 text-xs bg-black/20 rounded font-mono">
+                      I
+                    </kbd>
+                  </button>
+
                   <button
                     onClick={() => setShowAddFeature(true)}
                     className="neo-btn neo-btn-primary text-sm"
                     title="Press N"
                   >
                     <Plus size={18} />
-                    Add Feature
+                    {t('app.addFeature')}
                     <kbd className="ml-1.5 px-1.5 py-0.5 text-xs bg-black/20 rounded font-mono">
-                      N
+                      {t('app.shortcutN')}
                     </kbd>
                   </button>
 
@@ -181,10 +212,10 @@ function App() {
         {!selectedProject ? (
           <div className="neo-empty-state mt-12">
             <h2 className="font-display text-2xl font-bold mb-2">
-              Welcome to AutoCoder
+              {t('app.welcome.title')}
             </h2>
             <p className="text-[var(--color-neo-text-secondary)] mb-4">
-              Select a project from the dropdown above or create a new one to get started.
+              {t('app.welcome.description')}
             </p>
           </div>
         ) : (
@@ -212,10 +243,10 @@ function App() {
               <div className="neo-card p-8 text-center">
                 <Loader2 size={32} className="animate-spin mx-auto mb-4 text-[var(--color-neo-progress)]" />
                 <h3 className="font-display font-bold text-xl mb-2">
-                  Initializing Features...
+                  {t('app.initializing.title')}
                 </h3>
                 <p className="text-[var(--color-neo-text-secondary)]">
-                  The agent is reading your spec and creating features. This may take a moment.
+                  {t('app.initializing.description')}
                 </p>
               </div>
             )}
@@ -235,6 +266,21 @@ function App() {
           projectName={selectedProject}
           onClose={() => setShowAddFeature(false)}
         />
+      )}
+
+      {/* Add Features with AI Modal */}
+      {showAddFeaturesChat && selectedProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-4xl h-[80vh] mx-4 bg-white border-4 border-[var(--color-neo-border)] shadow-[8px_8px_0px_rgba(0,0,0,1)] overflow-hidden">
+            <AddFeaturesChat
+              projectName={selectedProject}
+              onClose={() => setShowAddFeaturesChat(false)}
+              onFeaturesAdded={() => {
+                // Features will be automatically refreshed via React Query
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Feature Detail Modal */}

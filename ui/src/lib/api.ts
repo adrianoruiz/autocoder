@@ -66,6 +66,24 @@ export async function deleteProject(name: string): Promise<void> {
   })
 }
 
+export type IDEType = 'vscode' | 'windsurf' | 'antigravity'
+
+export interface OpenIDEResponse {
+  success: boolean
+  ide: string
+  message: string
+}
+
+export async function openProjectInIDE(
+  name: string,
+  ide: IDEType = 'vscode'
+): Promise<OpenIDEResponse> {
+  return fetchJSON(`/projects/${encodeURIComponent(name)}/open-ide`, {
+    method: 'POST',
+    body: JSON.stringify({ ide }),
+  })
+}
+
 export async function getProjectPrompts(name: string): Promise<ProjectPrompts> {
   return fetchJSON(`/projects/${encodeURIComponent(name)}/prompts`)
 }

@@ -8,11 +8,15 @@ Uses project registry for path lookups instead of fixed generations/ directory.
 
 import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
 from ..schemas import (
+    OpenIDERequest,
+    OpenIDEResponse,
     ProjectCreate,
     ProjectDetail,
     ProjectPrompts,
@@ -338,3 +342,65 @@ async def get_project_stats_endpoint(name: str):
         raise HTTPException(status_code=404, detail="Project directory not found")
 
     return get_project_stats(project_dir)
+
+
+# IDE command mapping
+IDE_COMMANDS = {
+    "vscode": "code",
+    "windsurf": "windsurf",
+    "antigravity": "antigravity",
+}
+
+
+@router.post("/{name}/open-ide", response_model=OpenIDEResponse)
+async def open_project_in_ide(name: str, request: OpenIDERequest):
+    """Open the project directory in the specified IDE."""
+    _init_imports()
+    _, _, get_project_path, _, _ = _get_registry_functions()
+
+    name = validate_project_name(name)
+    project_dir = get_project_path(name)
+
+    if not project_dir:
+        raise HTTPException(status_code=404, detail=f"Project '{name}' not found")
+
+    if not project_dir.exists():
+        raise HTTPException(status_code=404, detail="Project directory not found")
+
+    ide = request.ide
+    command = IDE_COMMANDS.get(ide)
+
+    if not command:
+        raise HTTPException(status_code=400, detail=f"Unknown IDE: {ide}")
+
+    try:
+        # Use shell=True on Windows to find the command in PATH
+        if sys.platform == "win32":
+            subprocess.Popen(
+                f'{command} "{project_dir}"',
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            subprocess.Popen(
+                [command, str(project_dir)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+        return OpenIDEResponse(
+            success=True,
+            ide=ide,
+            message=f"Opening project in {ide}",
+        )
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=500,
+            detail=f"IDE '{ide}' ({command}) not found. Make sure it's installed and in your PATH.",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to open IDE: {str(e)}",
+        )
