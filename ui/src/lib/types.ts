@@ -86,6 +86,13 @@ export interface FeatureCreate {
   label?: string  // Wave/milestone label
 }
 
+export interface FeatureUpdate {
+  category?: string
+  name?: string
+  description?: string
+  steps?: string[]
+}
+
 // Agent types
 export type AgentStatus = 'stopped' | 'running' | 'paused' | 'crashed'
 

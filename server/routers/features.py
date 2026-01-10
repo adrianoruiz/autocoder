@@ -16,6 +16,7 @@ from ..schemas import (
     FeatureCreate,
     FeatureListResponse,
     FeatureResponse,
+    FeatureUpdate,
 )
 
 # Lazy imports to avoid circular dependencies
@@ -242,6 +243,48 @@ async def get_feature(project_name: str, feature_id: int):
     except Exception:
         logger.exception("Database error in get_feature")
         raise HTTPException(status_code=500, detail="Database error occurred")
+
+
+@router.patch("/{feature_id}", response_model=FeatureResponse)
+async def update_feature(project_name: str, feature_id: int, update: FeatureUpdate):
+    """Update a feature's editable fields (partial update)."""
+    project_name = validate_project_name(project_name)
+    project_dir = _get_project_path(project_name)
+
+    if not project_dir:
+        raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found in registry")
+
+    if not project_dir.exists():
+        raise HTTPException(status_code=404, detail="Project directory not found")
+
+    _, Feature = _get_db_classes()
+
+    try:
+        with get_db_session(project_dir) as session:
+            feature = session.query(Feature).filter(Feature.id == feature_id).first()
+
+            if not feature:
+                raise HTTPException(status_code=404, detail=f"Feature {feature_id} not found")
+
+            # Apply partial updates
+            if update.category is not None:
+                feature.category = update.category
+            if update.name is not None:
+                feature.name = update.name
+            if update.description is not None:
+                feature.description = update.description
+            if update.steps is not None:
+                feature.steps = update.steps
+
+            session.commit()
+            session.refresh(feature)
+
+            return feature_to_response(feature)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to update feature")
+        raise HTTPException(status_code=500, detail="Failed to update feature")
 
 
 @router.delete("/{feature_id}")

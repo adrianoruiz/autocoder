@@ -29,11 +29,21 @@ logger = logging.getLogger(__name__)
 # Root directory of the project
 ROOT_DIR = Path(__file__).parent.parent.parent
 
-# Read-only feature MCP tools (no mark_passing, skip, create_bulk)
+# Read-only feature MCP tools
 READONLY_FEATURE_MCP_TOOLS = [
     "mcp__features__feature_get_stats",
     "mcp__features__feature_get_next",
     "mcp__features__feature_get_for_regression",
+    "mcp__features__feature_get_existing",
+    "mcp__features__feature_get_labels",
+]
+
+# Feature management MCP tools (create, update, delete, skip)
+FEATURE_MANAGEMENT_TOOLS = [
+    "mcp__features__feature_create",
+    "mcp__features__feature_update",
+    "mcp__features__feature_delete",
+    "mcp__features__feature_skip",
 ]
 
 # Read-only built-in tools (no Write, Edit, Bash)
@@ -62,15 +72,17 @@ def get_system_prompt(project_name: str, project_dir: Path) -> str:
 
     return f"""You are a helpful project assistant for the "{project_name}" project.
 
-Your role is to help users understand the codebase, answer questions about features, and explain how code works. You have READ-ONLY access to the project files.
+Your role is to help users understand the codebase, answer questions about features, explain how code works, and manage the feature backlog. You have READ-ONLY access to the project files, but you CAN manage features in the backlog.
 
-IMPORTANT: You CANNOT modify any files. You can only:
+IMPORTANT: You CANNOT modify any source code files. However, you CAN:
 - Read and analyze source code files
 - Search for patterns in the codebase
 - Look up documentation online
 - Check feature progress and status
+- **Create, update, and delete features** in the backlog
+- Skip features that are blocked or not ready
 
-If the user asks you to make changes, politely explain that you're a read-only assistant and they should use the main coding agent for modifications.
+If the user asks you to modify source code, politely explain that you're a read-only assistant and they should use the main coding agent for code modifications.
 
 ## Project Specification
 
@@ -78,14 +90,22 @@ If the user asks you to make changes, politely explain that you're a read-only a
 
 ## Available Tools
 
-You have access to these read-only tools:
+### Code Analysis (Read-Only)
 - **Read**: Read file contents
 - **Glob**: Find files by pattern (e.g., "**/*.tsx")
 - **Grep**: Search file contents with regex
 - **WebFetch/WebSearch**: Look up documentation online
+
+### Feature Backlog Management
 - **feature_get_stats**: Get feature completion progress
 - **feature_get_next**: See the next pending feature
 - **feature_get_for_regression**: See passing features
+- **feature_get_existing**: List all existing features
+- **feature_get_labels**: Get feature labels/milestones
+- **feature_create**: Create a new feature
+- **feature_update**: Update an existing feature (change name, description, steps, or category)
+- **feature_delete**: Delete a feature from the backlog
+- **feature_skip**: Skip a feature (move it to end of queue)
 
 ## Guidelines
 
@@ -93,7 +113,9 @@ You have access to these read-only tools:
 2. When explaining code, reference specific file paths and line numbers
 3. Use the feature tools to answer questions about project progress
 4. Search the codebase to find relevant information before answering
-5. If you're unsure, say so rather than guessing"""
+5. When managing features, be clear about what changes you're making
+6. If you're unsure, say so rather than guessing
+7. Remember: deleting a completed feature only removes it from tracking - the code stays in the codebase"""
 
 
 class AssistantChatSession:
@@ -144,7 +166,7 @@ class AssistantChatSession:
             self.conversation_id = conv.id
             yield {"type": "conversation_created", "conversation_id": self.conversation_id}
 
-        # Build permissions list for read-only access
+        # Build permissions list for read-only access + feature management
         permissions_list = [
             "Read(./**)",
             "Glob(./**)",
@@ -152,6 +174,7 @@ class AssistantChatSession:
             "WebFetch",
             "WebSearch",
             *READONLY_FEATURE_MCP_TOOLS,
+            *FEATURE_MANAGEMENT_TOOLS,
         ]
 
         # Create security settings file
@@ -191,7 +214,7 @@ class AssistantChatSession:
                     model="claude-opus-4-5-20251101",
                     cli_path=system_cli,
                     system_prompt=system_prompt,
-                    allowed_tools=[*READONLY_BUILTIN_TOOLS, *READONLY_FEATURE_MCP_TOOLS],
+                    allowed_tools=[*READONLY_BUILTIN_TOOLS, *READONLY_FEATURE_MCP_TOOLS, *FEATURE_MANAGEMENT_TOOLS],
                     mcp_servers=mcp_servers,
                     permission_mode="bypassPermissions",
                     max_turns=100,

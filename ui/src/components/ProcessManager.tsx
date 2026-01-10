@@ -200,16 +200,23 @@ export function ProcessManager() {
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           {/* Header */}
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="bg-neo-dark text-white px-3 py-1 rounded-full text-sm font-bold">
-                              PID {proc.pid}
-                            </span>
-                            <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-                              {proc.status}
-                            </span>
-                            <span className="text-gray-500 text-sm">
-                              Uptime: {formatUptime(proc.create_time)}
-                            </span>
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-black mb-2">
+                                {proc.name}
+                              </h3>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="bg-neo-dark text-white px-3 py-1 rounded-full text-sm font-bold">
+                                  PID {proc.pid}
+                                </span>
+                                <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+                                  {proc.status}
+                                </span>
+                                <span className="text-gray-600 text-sm font-medium">
+                                  Uptime: {formatUptime(proc.create_time)}
+                                </span>
+                              </div>
+                            </div>
                           </div>
 
                           {/* Project */}

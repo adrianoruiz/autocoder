@@ -31,6 +31,7 @@ class Feature(Base):
     passes = Column(Boolean, default=False, index=True)
     in_progress = Column(Boolean, default=False, index=True)
     label = Column(String(100), nullable=True, default=None, index=True)  # Wave/milestone label
+    assigned_agent_id = Column(String(50), nullable=True, index=True)  # Agent working on this feature
 
     def to_dict(self) -> dict:
         """Convert feature to dictionary for JSON serialization."""
@@ -45,6 +46,7 @@ class Feature(Base):
             "passes": self.passes,
             "in_progress": self.in_progress,
             "label": self.label,
+            "assigned_agent_id": self.assigned_agent_id,
         }
 
 
@@ -112,6 +114,21 @@ def _migrate_add_type_column(engine) -> None:
             conn.commit()
 
 
+def _migrate_add_assigned_agent_id_column(engine) -> None:
+    """Add assigned_agent_id column to existing databases that don't have it."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        # Check if column exists
+        result = conn.execute(text("PRAGMA table_info(features)"))
+        columns = [row[1] for row in result.fetchall()]
+
+        if "assigned_agent_id" not in columns:
+            # Add the column (nullable, no default)
+            conn.execute(text("ALTER TABLE features ADD COLUMN assigned_agent_id VARCHAR(50)"))
+            conn.commit()
+
+
 def create_database(project_dir: Path) -> tuple:
     """
     Create database and return engine + session maker.
@@ -130,6 +147,7 @@ def create_database(project_dir: Path) -> tuple:
     _migrate_add_in_progress_column(engine)
     _migrate_add_label_column(engine)
     _migrate_add_type_column(engine)
+    _migrate_add_assigned_agent_id_column(engine)
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return engine, SessionLocal
