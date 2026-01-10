@@ -17,14 +17,18 @@ from claude_agent_sdk.types import HookMatcher
 from security import bash_security_hook
 
 # Feature MCP tools for feature/test management
-FEATURE_MCP_TOOLS = [
+# Note: feature_get_for_regression is only included in standard mode (not YOLO)
+FEATURE_MCP_TOOLS_BASE = [
     "mcp__features__feature_get_stats",
     "mcp__features__feature_get_next",
-    "mcp__features__feature_get_for_regression",
     "mcp__features__feature_mark_in_progress",
     "mcp__features__feature_mark_passing",
     "mcp__features__feature_skip",
     "mcp__features__feature_create_bulk",
+]
+
+FEATURE_MCP_TOOLS_REGRESSION = [
+    "mcp__features__feature_get_for_regression",
 ]
 
 # Playwright MCP tools for browser automation
@@ -73,7 +77,12 @@ BUILTIN_TOOLS = [
 ]
 
 
-def create_client(project_dir: Path, model: str, yolo_mode: bool = False):
+def create_client(
+    project_dir: Path,
+    model: str,
+    yolo_mode: bool = False,
+    agent_id: str | None = None,
+):
     """
     Create a Claude Agent SDK client with multi-layered security.
 
@@ -81,6 +90,7 @@ def create_client(project_dir: Path, model: str, yolo_mode: bool = False):
         project_dir: Directory for the project
         model: Claude model to use
         yolo_mode: If True, skip Playwright MCP server for rapid prototyping
+        agent_id: Optional agent identifier for parallel execution
 
     Returns:
         Configured ClaudeSDKClient (from claude_agent_sdk)
@@ -95,9 +105,10 @@ def create_client(project_dir: Path, model: str, yolo_mode: bool = False):
     The Claude SDK auto-detects credentials from ~/.claude/.credentials.json
     """
     # Build allowed tools list based on mode
-    # In YOLO mode, exclude Playwright tools for faster prototyping
-    allowed_tools = [*BUILTIN_TOOLS, *FEATURE_MCP_TOOLS]
+    # In YOLO mode, exclude Playwright tools and regression testing for faster prototyping
+    allowed_tools = [*BUILTIN_TOOLS, *FEATURE_MCP_TOOLS_BASE]
     if not yolo_mode:
+        allowed_tools.extend(FEATURE_MCP_TOOLS_REGRESSION)
         allowed_tools.extend(PLAYWRIGHT_TOOLS)
 
     # Build permissions list
@@ -115,10 +126,11 @@ def create_client(project_dir: Path, model: str, yolo_mode: bool = False):
         "WebFetch",
         "WebSearch",
         # Allow Feature MCP tools for feature management
-        *FEATURE_MCP_TOOLS,
+        *FEATURE_MCP_TOOLS_BASE,
     ]
     if not yolo_mode:
-        # Allow Playwright MCP tools for browser automation (standard mode only)
+        # Allow regression testing and Playwright (standard mode only)
+        permissions_list.extend(FEATURE_MCP_TOOLS_REGRESSION)
         permissions_list.extend(PLAYWRIGHT_TOOLS)
 
     # Create comprehensive security settings
@@ -149,6 +161,8 @@ def create_client(project_dir: Path, model: str, yolo_mode: bool = False):
     else:
         print("   - MCP servers: playwright (browser), features (database)")
     print("   - Project settings enabled (skills, commands, CLAUDE.md)")
+    if agent_id:
+        print(f"   - Parallel mode: Agent ID = {agent_id}")
     print()
 
     # Use system Claude CLI instead of bundled one (avoids Bun runtime crash on Windows)
@@ -159,17 +173,24 @@ def create_client(project_dir: Path, model: str, yolo_mode: bool = False):
         print("   - Warning: System Claude CLI not found, using bundled CLI")
 
     # Build MCP servers config - features is always included, playwright only in standard mode
+    mcp_env = {
+        # Inherit parent environment (PATH, ANTHROPIC_API_KEY, etc.)
+        **os.environ,
+        # Add custom variables
+        "PROJECT_DIR": str(project_dir.resolve()),
+        "PYTHONPATH": str(Path(__file__).parent.resolve()),
+        "YOLO_MODE": "true" if yolo_mode else "false",
+    }
+
+    # Add agent_id for parallel execution
+    if agent_id:
+        mcp_env["AGENT_ID"] = agent_id
+
     mcp_servers = {
         "features": {
             "command": sys.executable,  # Use the same Python that's running this script
             "args": ["-m", "mcp_server.feature_mcp"],
-            "env": {
-                # Inherit parent environment (PATH, ANTHROPIC_API_KEY, etc.)
-                **os.environ,
-                # Add custom variables
-                "PROJECT_DIR": str(project_dir.resolve()),
-                "PYTHONPATH": str(Path(__file__).parent.resolve()),
-            },
+            "env": mcp_env,
         },
     }
     if not yolo_mode:

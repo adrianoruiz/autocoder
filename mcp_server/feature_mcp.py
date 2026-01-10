@@ -80,6 +80,20 @@ class BulkCreateInput(BaseModel):
     features: list[FeatureCreateItem] = Field(..., min_length=1, description="List of features to create")
 
 
+class FeatureUpdateInput(BaseModel):
+    """Input for updating a feature."""
+    feature_id: int = Field(..., description="The ID of the feature to update", ge=1)
+    category: str | None = Field(None, min_length=1, max_length=100, description="Feature category")
+    name: str | None = Field(None, min_length=1, max_length=255, description="Feature name")
+    description: str | None = Field(None, min_length=1, description="Detailed description")
+    steps: list[str] | None = Field(None, min_length=1, description="Implementation/test steps")
+
+
+class FeatureDeleteInput(BaseModel):
+    """Input for deleting a feature."""
+    feature_id: int = Field(..., description="The ID of the feature to delete", ge=1)
+
+
 # Global database session maker (initialized on startup)
 _session_maker = None
 _engine = None
@@ -145,27 +159,52 @@ def feature_get_stats() -> str:
 
 
 @mcp.tool()
-def feature_get_next() -> str:
+def feature_get_next(
+    agent_id: Annotated[str, Field(default="", description="Optional agent ID to filter out features being worked on by other agents")] = ""
+) -> str:
     """Get the highest-priority pending feature to work on.
 
-    Returns the feature with the lowest priority number that has passes=false.
+    Returns the feature with the lowest priority number that has passes=false
+    and is not currently being worked on by another agent.
     Use this at the start of each coding session to determine what to implement next.
 
+    NOTE: In parallel agent mode (AGENT_ID env var set), this automatically claims
+    the feature to prevent race conditions with other agents.
+
+    Args:
+        agent_id: Optional agent ID. If provided, excludes features assigned to other agents.
+                  Auto-detected from AGENT_ID environment variable if not provided.
+
     Returns:
-        JSON with feature details (id, priority, category, name, description, steps, passes, in_progress)
-        or error message if all features are passing.
+        JSON with feature details (id, priority, category, name, description, steps, passes, in_progress, assigned_agent_id)
+        or error message if all features are passing or assigned.
     """
+    # Auto-detect agent_id from environment if not provided
+    if not agent_id:
+        agent_id = os.environ.get("AGENT_ID", "")
+
     session = get_session()
     try:
-        feature = (
-            session.query(Feature)
-            .filter(Feature.passes == False)
-            .order_by(Feature.priority.asc(), Feature.id.asc())
-            .first()
-        )
+        query = session.query(Feature).filter(Feature.passes == False)
+
+        # If agent_id provided, exclude features assigned to other agents
+        if agent_id:
+            query = query.filter(
+                (Feature.assigned_agent_id == None) |
+                (Feature.assigned_agent_id == agent_id)
+            )
+
+        feature = query.order_by(Feature.priority.asc(), Feature.id.asc()).first()
 
         if feature is None:
-            return json.dumps({"error": "All features are passing! No more work to do."})
+            return json.dumps({"error": "All features are passing or assigned to other agents! No more work to do."})
+
+        # In parallel mode, automatically claim the feature to prevent race conditions
+        if agent_id and not feature.in_progress:
+            feature.in_progress = True
+            feature.assigned_agent_id = agent_id
+            session.commit()
+            session.refresh(feature)
 
         return json.dumps(feature.to_dict(), indent=2)
     finally:
@@ -182,12 +221,26 @@ def feature_get_for_regression(
     Use this to verify that previously implemented features still work
     after making changes.
 
+    NOTE: This tool is disabled in YOLO mode. In YOLO mode, regression testing
+    is skipped for faster prototyping.
+
     Args:
         limit: Maximum number of features to return (1-10, default 3)
 
     Returns:
         JSON with: features (list of feature objects), count (int)
+        or error if called in YOLO mode
     """
+    # Check if YOLO mode is enabled (the tool should be blocked by client.py in YOLO mode,
+    # but we add a defense-in-depth check here as well)
+    yolo_mode = os.environ.get("YOLO_MODE", "").lower() == "true"
+    if yolo_mode:
+        return json.dumps({
+            "error": "Regression testing is disabled in YOLO mode",
+            "features": [],
+            "count": 0
+        }, indent=2)
+
     session = get_session()
     try:
         features = (
@@ -212,8 +265,9 @@ def feature_mark_passing(
 ) -> str:
     """Mark a feature as passing after successful implementation.
 
-    Updates the feature's passes field to true and clears the in_progress flag.
-    Use this after you have implemented the feature and verified it works correctly.
+    Updates the feature's passes field to true and clears the in_progress flag
+    and agent assignment. Use this after you have implemented the feature and
+    verified it works correctly.
 
     Args:
         feature_id: The ID of the feature to mark as passing
@@ -230,6 +284,7 @@ def feature_mark_passing(
 
         feature.passes = True
         feature.in_progress = False
+        feature.assigned_agent_id = None  # Clear agent assignment on completion
         session.commit()
         session.refresh(feature)
 
@@ -293,7 +348,8 @@ def feature_skip(
 
 @mcp.tool()
 def feature_mark_in_progress(
-    feature_id: Annotated[int, Field(description="The ID of the feature to mark as in-progress", ge=1)]
+    feature_id: Annotated[int, Field(description="The ID of the feature to mark as in-progress", ge=1)],
+    agent_id: Annotated[str, Field(default="", description="Optional agent ID to assign this feature to")] = ""
 ) -> str:
     """Mark a feature as in-progress. Call immediately after feature_get_next().
 
@@ -302,9 +358,10 @@ def feature_mark_in_progress(
 
     Args:
         feature_id: The ID of the feature to mark as in-progress
+        agent_id: Optional agent ID to assign this feature to
 
     Returns:
-        JSON with the updated feature details, or error if not found or already in-progress.
+        JSON with the updated feature details, or error if not found or already in-progress by another agent.
     """
     session = get_session()
     try:
@@ -316,10 +373,16 @@ def feature_mark_in_progress(
         if feature.passes:
             return json.dumps({"error": f"Feature with ID {feature_id} is already passing"})
 
-        if feature.in_progress:
-            return json.dumps({"error": f"Feature with ID {feature_id} is already in-progress"})
+        # Check if already in progress by another agent
+        if feature.in_progress and feature.assigned_agent_id and agent_id:
+            if feature.assigned_agent_id != agent_id:
+                return json.dumps({
+                    "error": f"Feature with ID {feature_id} is already in-progress by agent {feature.assigned_agent_id}"
+                })
 
         feature.in_progress = True
+        if agent_id:
+            feature.assigned_agent_id = agent_id
         session.commit()
         session.refresh(feature)
 
@@ -351,10 +414,106 @@ def feature_clear_in_progress(
             return json.dumps({"error": f"Feature with ID {feature_id} not found"})
 
         feature.in_progress = False
+        feature.assigned_agent_id = None
         session.commit()
         session.refresh(feature)
 
         return json.dumps(feature.to_dict(), indent=2)
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_claim_next(
+    agent_id: Annotated[str, Field(description="The agent ID claiming the feature")]
+) -> str:
+    """Atomically get and claim the next available feature for an agent.
+
+    This is the preferred method for parallel agents to avoid race conditions.
+    It combines feature_get_next and feature_mark_in_progress into a single
+    atomic operation.
+
+    Args:
+        agent_id: The agent ID claiming the feature
+
+    Returns:
+        JSON with the claimed feature details, or error if no features available.
+    """
+    session = get_session()
+    try:
+        # Find the next available feature not assigned to another agent
+        # A feature is available if:
+        # 1. Not in progress AND not assigned to anyone, OR
+        # 2. Already assigned to this agent (allow re-claiming own feature)
+        feature = (
+            session.query(Feature)
+            .filter(Feature.passes == False)
+            .filter(
+                ((Feature.in_progress == False) & (Feature.assigned_agent_id == None)) |
+                (Feature.assigned_agent_id == agent_id)
+            )
+            .order_by(Feature.priority.asc(), Feature.id.asc())
+            .with_for_update()  # Lock the row
+            .first()
+        )
+
+        if feature is None:
+            return json.dumps({"error": "No features available to claim. All are passing or assigned."})
+
+        # Claim the feature
+        feature.in_progress = True
+        feature.assigned_agent_id = agent_id
+        session.commit()
+        session.refresh(feature)
+
+        return json.dumps(feature.to_dict(), indent=2)
+    except Exception as e:
+        session.rollback()
+        return json.dumps({"error": f"Failed to claim feature: {str(e)}"})
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_release(
+    feature_id: Annotated[int, Field(description="The ID of the feature to release", ge=1)],
+    agent_id: Annotated[str, Field(default="", description="The agent ID releasing the feature")] = ""
+) -> str:
+    """Release a feature back to the queue without marking it as passing.
+
+    Use this when an agent needs to stop working on a feature but hasn't
+    completed it. The feature will be available for other agents to claim.
+
+    Args:
+        feature_id: The ID of the feature to release
+        agent_id: Optional agent ID for verification
+
+    Returns:
+        JSON with the updated feature details, or error if not found.
+    """
+    session = get_session()
+    try:
+        feature = session.query(Feature).filter(Feature.id == feature_id).first()
+
+        if feature is None:
+            return json.dumps({"error": f"Feature with ID {feature_id} not found"})
+
+        # Only release if the agent owns it or no agent specified
+        if agent_id and feature.assigned_agent_id and feature.assigned_agent_id != agent_id:
+            return json.dumps({
+                "error": f"Feature is assigned to agent {feature.assigned_agent_id}, not {agent_id}"
+            })
+
+        feature.in_progress = False
+        feature.assigned_agent_id = None
+        session.commit()
+        session.refresh(feature)
+
+        return json.dumps({
+            "released": True,
+            "feature": feature.to_dict(),
+            "message": f"Feature '{feature.name}' released back to queue"
+        }, indent=2)
     finally:
         session.close()
 
@@ -501,6 +660,160 @@ def feature_get_labels() -> str:
         )
 
         return json.dumps({"labels": sorted_labels}, indent=2)
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_create(
+    category: Annotated[str, Field(description="Feature category", min_length=1, max_length=100)],
+    name: Annotated[str, Field(description="Feature name", min_length=1, max_length=255)],
+    description: Annotated[str, Field(description="Detailed description", min_length=1)],
+    steps: Annotated[list[str], Field(description="Implementation/test steps", min_length=1)],
+    type: Annotated[str, Field(default="feature", description="Feature type: 'feature' or 'bug'")] = "feature"
+) -> str:
+    """Create a single feature.
+
+    Creates a new feature with the provided details. The feature is assigned
+    a priority based on the current maximum priority in the database.
+
+    Args:
+        category: Feature category (e.g., "Authentication", "UI")
+        name: Feature name (e.g., "Add login button")
+        description: Detailed description of the feature
+        steps: List of implementation/test steps
+        type: Feature type ('feature' or 'bug')
+
+    Returns:
+        JSON with the created feature details, or error if creation failed.
+    """
+    session = get_session()
+    try:
+        # Get next priority
+        max_priority_result = session.query(Feature.priority).order_by(Feature.priority.desc()).first()
+        priority = (max_priority_result[0] + 1) if max_priority_result else 1
+
+        # Apply priority boost for bugs
+        if type == "bug":
+            priority -= 500
+
+        db_feature = Feature(
+            priority=priority,
+            type=type,
+            category=category,
+            name=name,
+            description=description,
+            steps=steps,
+            passes=False,
+        )
+
+        session.add(db_feature)
+        session.commit()
+        session.refresh(db_feature)
+
+        return json.dumps(db_feature.to_dict(), indent=2)
+    except Exception as e:
+        session.rollback()
+        return json.dumps({"error": str(e)})
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_update(
+    feature_id: Annotated[int, Field(description="The ID of the feature to update", ge=1)],
+    category: Annotated[str | None, Field(default=None, description="Feature category", min_length=1, max_length=100)] = None,
+    name: Annotated[str | None, Field(default=None, description="Feature name", min_length=1, max_length=255)] = None,
+    description: Annotated[str | None, Field(default=None, description="Detailed description", min_length=1)] = None,
+    steps: Annotated[list[str] | None, Field(default=None, description="Implementation/test steps", min_length=1)] = None
+) -> str:
+    """Update a feature's editable fields.
+
+    Updates one or more fields of an existing feature. All fields are optional -
+    only provided fields will be updated. This allows partial updates.
+
+    Args:
+        feature_id: The ID of the feature to update
+        category: New category (optional)
+        name: New name (optional)
+        description: New description (optional)
+        steps: New list of steps (optional)
+
+    Returns:
+        JSON with the updated feature details, or error if not found.
+    """
+    session = get_session()
+    try:
+        feature = session.query(Feature).filter(Feature.id == feature_id).first()
+
+        if feature is None:
+            return json.dumps({"error": f"Feature with ID {feature_id} not found"})
+
+        # Apply partial updates
+        if category is not None:
+            feature.category = category
+        if name is not None:
+            feature.name = name
+        if description is not None:
+            feature.description = description
+        if steps is not None:
+            feature.steps = steps
+
+        session.commit()
+        session.refresh(feature)
+
+        return json.dumps(feature.to_dict(), indent=2)
+    except Exception as e:
+        session.rollback()
+        return json.dumps({"error": str(e)})
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_delete(
+    feature_id: Annotated[int, Field(description="The ID of the feature to delete", ge=1)]
+) -> str:
+    """Delete a feature from backlog tracking.
+
+    Removes a feature from the database. Note that if the feature has already
+    been implemented (passes=true), the associated code will remain in the codebase.
+    This tool only removes the feature from backlog tracking.
+
+    If you need to remove completed feature code, create a new feature describing
+    the removal work instead of using this tool.
+
+    Args:
+        feature_id: The ID of the feature to delete
+
+    Returns:
+        JSON with success message, or error if not found.
+    """
+    session = get_session()
+    try:
+        feature = session.query(Feature).filter(Feature.id == feature_id).first()
+
+        if feature is None:
+            return json.dumps({"error": f"Feature with ID {feature_id} not found"})
+
+        feature_name = feature.name
+        was_passing = feature.passes
+
+        session.delete(feature)
+        session.commit()
+
+        result = {
+            "success": True,
+            "message": f"Feature '{feature_name}' deleted from backlog"
+        }
+
+        if was_passing:
+            result["note"] = "Feature was marked passing - code remains in codebase. Create a removal feature if code cleanup is needed."
+
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        session.rollback()
+        return json.dumps({"error": str(e)})
     finally:
         session.close()
 
