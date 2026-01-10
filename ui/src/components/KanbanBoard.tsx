@@ -4,10 +4,11 @@ import type { Feature, FeatureListResponse } from '../lib/types'
 
 interface KanbanBoardProps {
   features: FeatureListResponse | undefined
+  projectName: string
   onFeatureClick: (feature: Feature) => void
 }
 
-export function KanbanBoard({ features, onFeatureClick }: KanbanBoardProps) {
+export function KanbanBoard({ features, projectName, onFeatureClick }: KanbanBoardProps) {
   const { t } = useTranslation()
 
   if (!features) {
@@ -34,6 +35,7 @@ export function KanbanBoard({ features, onFeatureClick }: KanbanBoardProps) {
         count={features.pending.length}
         features={features.pending}
         color="pending"
+        projectName={projectName}
         onFeatureClick={onFeatureClick}
       />
       <KanbanColumn
@@ -41,6 +43,7 @@ export function KanbanBoard({ features, onFeatureClick }: KanbanBoardProps) {
         count={features.in_progress.length}
         features={features.in_progress}
         color="progress"
+        projectName={projectName}
         onFeatureClick={onFeatureClick}
       />
       <KanbanColumn
@@ -48,6 +51,7 @@ export function KanbanBoard({ features, onFeatureClick }: KanbanBoardProps) {
         count={features.done.length}
         features={features.done}
         color="done"
+        projectName={projectName}
         onFeatureClick={onFeatureClick}
       />
     </div>

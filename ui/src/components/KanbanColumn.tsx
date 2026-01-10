@@ -7,6 +7,7 @@ interface KanbanColumnProps {
   count: number
   features: Feature[]
   color: 'pending' | 'progress' | 'done'
+  projectName: string
   onFeatureClick: (feature: Feature) => void
 }
 
@@ -21,6 +22,7 @@ export function KanbanColumn({
   count,
   features,
   color,
+  projectName,
   onFeatureClick,
 }: KanbanColumnProps) {
   const { t } = useTranslation()
@@ -56,6 +58,7 @@ export function KanbanColumn({
             >
               <FeatureCard
                 feature={feature}
+                projectName={projectName}
                 onClick={() => onFeatureClick(feature)}
                 isInProgress={color === 'progress'}
               />

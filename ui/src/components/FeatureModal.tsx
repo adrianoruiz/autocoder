@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { X, CheckCircle2, Circle, SkipForward, Trash2, Loader2, AlertCircle, Edit2, Save, Plus, Minus } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useSkipFeature, useDeleteFeature, useUpdateFeature } from '../hooks/useProjects'
+import { getFeatureSteps } from '../lib/api'
 import type { Feature } from '../lib/types'
 
 interface FeatureModalProps {
@@ -30,6 +32,13 @@ export function FeatureModal({ feature, projectName, onClose }: FeatureModalProp
   const skipFeature = useSkipFeature(projectName)
   const deleteFeature = useDeleteFeature(projectName)
   const updateFeature = useUpdateFeature(projectName)
+
+  // Fetch step progress data
+  const { data: stepsData } = useQuery({
+    queryKey: ['featureSteps', projectName, feature.id],
+    queryFn: () => getFeatureSteps(projectName, feature.id),
+    refetchInterval: 2000, // Refresh every 2 seconds for live updates
+  })
 
   const handleSkip = async () => {
     setError(null)
@@ -152,6 +161,27 @@ export function FeatureModal({ feature, projectName, onClose }: FeatureModalProp
                 <h2 className="font-display text-2xl font-bold">
                   {feature.name}
                 </h2>
+                {/* Progress bar */}
+                {stepsData && stepsData.total_steps > 0 && (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="font-mono font-bold">
+                        {stepsData.completed_steps}/{stepsData.total_steps} steps
+                      </span>
+                      <span className="font-mono text-xs">
+                        {Math.round((stepsData.completed_steps / stepsData.total_steps) * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-3 bg-[var(--color-neo-bg)] border-3 border-[var(--color-neo-border)] overflow-hidden">
+                      <div
+                        className="h-full bg-[var(--color-neo-done)] transition-all duration-300"
+                        style={{
+                          width: `${(stepsData.completed_steps / stepsData.total_steps) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -257,6 +287,49 @@ export function FeatureModal({ feature, projectName, onClose }: FeatureModalProp
                           <Minus size={18} />
                         </button>
                       )}
+                    </div>
+                  ))}
+                </div>
+              ) : stepsData ? (
+                <div className="space-y-2">
+                  {stepsData.steps.map((stepProgress) => (
+                    <div
+                      key={stepProgress.id}
+                      className="flex items-start gap-3 p-3 bg-[var(--color-neo-bg)] border-3 border-[var(--color-neo-border)]"
+                    >
+                      <div className="flex-shrink-0 mt-0.5">
+                        {stepProgress.completed ? (
+                          <CheckCircle2
+                            size={20}
+                            className="text-[var(--color-neo-done)]"
+                          />
+                        ) : stepProgress.started_at ? (
+                          <Loader2
+                            size={20}
+                            className="text-[var(--color-neo-progress)] animate-spin"
+                          />
+                        ) : (
+                          <Circle
+                            size={20}
+                            className="text-[var(--color-neo-border)]"
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-mono text-sm">
+                          {stepProgress.step_text}
+                        </div>
+                        {stepProgress.notes && (
+                          <div className="mt-1 text-xs text-gray-600">
+                            {stepProgress.notes}
+                          </div>
+                        )}
+                        {stepProgress.completed_at && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Completed: {new Date(stepProgress.completed_at).toLocaleTimeString()}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

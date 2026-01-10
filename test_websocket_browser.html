@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        #messages {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        .message {
+            padding: 5px;
+            margin: 5px 0;
+            border-left: 3px solid #ccc;
+            padding-left: 10px;
+        }
+        .message.chat { border-color: #4CAF50; }
+        .message.step { border-color: #2196F3; }
+        .message.narrative { border-color: #FF9800; }
+        .message.log { border-color: #9E9E9E; font-size: 0.9em; }
+        .message.error { border-color: #f44336; background: #ffebee; }
+        input {
+            width: calc(100% - 100px);
+            padding: 10px;
+            font-family: monospace;
+        }
+        button {
+            padding: 10px 20px;
+            margin-left: 10px;
+        }
+        .status {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Chat Test</h1>
+
+    <div class="status" id="status">
+        Status: <span id="connectionStatus">Disconnected</span>
+    </div>
+
+    <div id="messages"></div>
+
+    <div>
+        <input type="text" id="messageInput" placeholder="Type a message..." />
+        <button onclick="sendMessage()">Send</button>
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <script>
+        let ws = null;
+        const messagesDiv = document.getElementById('messages');
+        const statusSpan = document.getElementById('connectionStatus');
+        const messageInput = document.getElementById('messageInput');
+
+        // Replace 'test' with your actual project name
+        const PROJECT_NAME = 'test';
+        const WS_URL = `ws://localhost:8000/ws/projects/${PROJECT_NAME}`;
+
+        function addMessage(type, content) {
+            const msg = document.createElement('div');
+            msg.className = `message ${type}`;
+
+            const prefix = document.createElement('strong');
+            prefix.textContent = `[${type}] `;
+
+            const text = document.createTextNode(content);
+
+            msg.appendChild(prefix);
+            msg.appendChild(text);
+
+            messagesDiv.appendChild(msg);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function connect() {
+            if (ws) {
+                addMessage('error', 'Already connected');
+                return;
+            }
+
+            addMessage('log', `Connecting to ${WS_URL}...`);
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                statusSpan.textContent = 'Connected ✓';
+                statusSpan.style.color = 'green';
+                addMessage('log', 'WebSocket connected');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const type = data.type;
+
+                switch (type) {
+                    case 'agent_chat_message':
+                        addMessage('chat', `Agent: ${data.content}`);
+                        break;
+
+                    case 'step_update':
+                        addMessage('step',
+                            `Step ${data.step_index} of feature ${data.feature_id}: ${data.status}` +
+                            (data.notes ? ` - ${data.notes}` : '')
+                        );
+                        break;
+
+                    case 'agent_narrative':
+                        addMessage('narrative', `Narrative: ${data.content}`);
+                        break;
+
+                    case 'log':
+                        addMessage('log', data.line);
+                        break;
+
+                    case 'progress':
+                        addMessage('log',
+                            `Progress: ${data.passing}/${data.total} (${data.percentage}%) - ` +
+                            `${data.in_progress} in progress`
+                        );
+                        break;
+
+                    case 'agent_status':
+                        addMessage('log', `Agent status: ${data.status}`);
+                        break;
+
+                    case 'error':
+                        addMessage('error', `Error: ${data.message}`);
+                        break;
+
+                    case 'pong':
+                        addMessage('log', 'Pong received');
+                        break;
+
+                    default:
+                        addMessage('log', `Unknown message type: ${type}`);
+                }
+            };
+
+            ws.onerror = (error) => {
+                addMessage('error', `WebSocket error: ${error.message || 'Unknown error'}`);
+            };
+
+            ws.onclose = () => {
+                statusSpan.textContent = 'Disconnected';
+                statusSpan.style.color = 'red';
+                addMessage('log', 'WebSocket disconnected');
+                ws = null;
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function sendMessage() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addMessage('error', 'Not connected to WebSocket');
+                return;
+            }
+
+            const content = messageInput.value.trim();
+            if (!content) {
+                return;
+            }
+
+            const message = {
+                type: 'user_chat_message',
+                content: content
+            };
+
+            ws.send(JSON.stringify(message));
+            addMessage('chat', `You: ${content}`);
+            messageInput.value = '';
+        }
+
+        // Allow Enter key to send message
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Console helpers
+        window.sendPing = () => {
+            if (ws) {
+                ws.send(JSON.stringify({ type: 'ping' }));
+                console.log('Ping sent');
+            } else {
+                console.error('Not connected');
+            }
+        };
+
+        window.clearMessages = () => {
+            messagesDiv.innerHTML = '';
+        };
+
+        console.log('WebSocket test page loaded');
+        console.log('Available functions:');
+        console.log('  connect() - Connect to WebSocket');
+        console.log('  disconnect() - Disconnect from WebSocket');
+        console.log('  sendPing() - Send ping to server');
+        console.log('  clearMessages() - Clear message log');
+    </script>
+</body>
+</html>

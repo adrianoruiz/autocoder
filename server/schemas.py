@@ -116,6 +116,36 @@ class FeatureListResponse(BaseModel):
 
 
 # ============================================================================
+# Step Progress Schemas
+# ============================================================================
+
+class StepProgressResponse(BaseModel):
+    """Response schema for a single step progress."""
+    id: int
+    feature_id: int
+    step_index: int
+    step_text: str
+    completed: bool
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    notes: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class FeatureStepsResponse(BaseModel):
+    """Response schema for feature step progress details."""
+    feature_id: int
+    feature_name: str
+    steps: list[StepProgressResponse]
+    total_steps: int
+    completed_steps: int
+    in_progress_steps: int
+    pending_steps: int
+
+
+# ============================================================================
 # Agent Schemas
 # ============================================================================
 

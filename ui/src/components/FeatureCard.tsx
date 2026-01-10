@@ -1,8 +1,11 @@
 import { CheckCircle2, Circle, Loader2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { getFeatureSteps } from '../lib/api'
 import type { Feature } from '../lib/types'
 
 interface FeatureCardProps {
   feature: Feature
+  projectName: string
   onClick: () => void
   isInProgress?: boolean
 }
@@ -27,8 +30,15 @@ function getCategoryColor(category: string): string {
   return colors[Math.abs(hash) % colors.length]
 }
 
-export function FeatureCard({ feature, onClick, isInProgress }: FeatureCardProps) {
+export function FeatureCard({ feature, projectName, onClick, isInProgress }: FeatureCardProps) {
   const categoryColor = getCategoryColor(feature.category)
+
+  // Fetch step progress data
+  const { data: stepsData } = useQuery({
+    queryKey: ['featureSteps', projectName, feature.id],
+    queryFn: () => getFeatureSteps(projectName, feature.id),
+    refetchInterval: 2000, // Refresh every 2 seconds for live updates
+  })
 
   return (
     <button
@@ -73,6 +83,25 @@ export function FeatureCard({ feature, onClick, isInProgress }: FeatureCardProps
       <p className="text-sm text-[var(--color-neo-text-secondary)] line-clamp-2 mb-3">
         {feature.description}
       </p>
+
+      {/* Progress bar */}
+      {stepsData && stepsData.total_steps > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-mono text-xs font-bold">
+              {stepsData.completed_steps}/{stepsData.total_steps} steps
+            </span>
+            <div className="flex-1 h-2 bg-[var(--color-neo-bg)] border-2 border-[var(--color-neo-border)] overflow-hidden">
+              <div
+                className="h-full bg-[var(--color-neo-done)] transition-all duration-300"
+                style={{
+                  width: `${(stepsData.completed_steps / stepsData.total_steps) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status */}
       <div className="flex items-center gap-2 text-sm flex-wrap">

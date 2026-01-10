@@ -16,7 +16,9 @@ from ..schemas import (
     FeatureCreate,
     FeatureListResponse,
     FeatureResponse,
+    FeatureStepsResponse,
     FeatureUpdate,
+    StepProgressResponse,
 )
 
 # Lazy imports to avoid circular dependencies
@@ -357,3 +359,82 @@ async def skip_feature(project_name: str, feature_id: int):
     except Exception:
         logger.exception("Failed to skip feature")
         raise HTTPException(status_code=500, detail="Failed to skip feature")
+
+
+@router.get("/{feature_id}/steps", response_model=FeatureStepsResponse)
+async def get_feature_steps(project_name: str, feature_id: int):
+    """
+    Get detailed step-by-step progress for a feature.
+
+    Returns all step progress records for a feature, including completion status,
+    timestamps, and notes. Also includes summary statistics.
+    """
+    project_name = validate_project_name(project_name)
+    project_dir = _get_project_path(project_name)
+
+    if not project_dir:
+        raise HTTPException(status_code=404, detail=f"Project '{project_name}' not found in registry")
+
+    if not project_dir.exists():
+        raise HTTPException(status_code=404, detail="Project directory not found")
+
+    # Import StepProgress
+    import sys
+    from pathlib import Path
+    root = Path(__file__).parent.parent.parent
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    from api.database import StepProgress
+
+    _, Feature = _get_db_classes()
+
+    try:
+        with get_db_session(project_dir) as session:
+            # Verify feature exists
+            feature = session.query(Feature).filter(Feature.id == feature_id).first()
+            if not feature:
+                raise HTTPException(status_code=404, detail=f"Feature {feature_id} not found")
+
+            # Get all steps for this feature, ordered by step_index
+            steps = (
+                session.query(StepProgress)
+                .filter(StepProgress.feature_id == feature_id)
+                .order_by(StepProgress.step_index)
+                .all()
+            )
+
+            # Calculate statistics
+            total_steps = len(steps)
+            completed_steps = sum(1 for s in steps if s.completed)
+            in_progress_steps = sum(1 for s in steps if s.started_at and not s.completed)
+            pending_steps = sum(1 for s in steps if not s.started_at)
+
+            # Convert to response model
+            step_responses = [
+                StepProgressResponse(
+                    id=s.id,
+                    feature_id=s.feature_id,
+                    step_index=s.step_index,
+                    step_text=s.step_text,
+                    completed=s.completed,
+                    started_at=s.started_at,
+                    completed_at=s.completed_at,
+                    notes=s.notes
+                )
+                for s in steps
+            ]
+
+            return FeatureStepsResponse(
+                feature_id=feature_id,
+                feature_name=feature.name,
+                steps=step_responses,
+                total_steps=total_steps,
+                completed_steps=completed_steps,
+                in_progress_steps=in_progress_steps,
+                pending_steps=pending_steps
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to get feature steps")
+        raise HTTPException(status_code=500, detail="Failed to get feature steps")

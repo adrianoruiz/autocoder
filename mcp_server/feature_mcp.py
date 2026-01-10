@@ -23,6 +23,7 @@ import json
 import os
 import sys
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -33,7 +34,7 @@ from sqlalchemy.sql.expression import func
 # Add parent directory to path so we can import from api module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from api.database import Feature, create_database
+from api.database import Feature, StepProgress, create_database
 from api.migration import migrate_json_to_sqlite
 
 # Configuration from environment
@@ -814,6 +815,150 @@ def feature_delete(
     except Exception as e:
         session.rollback()
         return json.dumps({"error": str(e)})
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_step_mark_started(
+    feature_id: Annotated[int, Field(description="The ID of the feature", ge=1)],
+    step_index: Annotated[int, Field(description="The 0-based index of the step to mark as started", ge=0)]
+) -> str:
+    """Mark a specific step as started with a timestamp.
+
+    Records when a step begins execution by setting the started_at timestamp.
+    This allows tracking which step is currently being worked on.
+
+    Args:
+        feature_id: The ID of the feature containing the step
+        step_index: The 0-based index of the step within the feature
+
+    Returns:
+        JSON with the updated step progress details, or error if not found.
+    """
+    session = get_session()
+    try:
+        step = (
+            session.query(StepProgress)
+            .filter(
+                StepProgress.feature_id == feature_id,
+                StepProgress.step_index == step_index
+            )
+            .first()
+        )
+
+        if step is None:
+            return json.dumps({
+                "error": f"Step {step_index} for feature {feature_id} not found"
+            })
+
+        step.started_at = datetime.utcnow()
+        session.commit()
+        session.refresh(step)
+
+        return json.dumps(step.to_dict(), indent=2)
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_step_mark_completed(
+    feature_id: Annotated[int, Field(description="The ID of the feature", ge=1)],
+    step_index: Annotated[int, Field(description="The 0-based index of the step to mark as completed", ge=0)],
+    notes: Annotated[str | None, Field(default=None, description="Optional notes about the step completion")] = None
+) -> str:
+    """Mark a specific step as completed with a timestamp and optional notes.
+
+    Records when a step is finished by setting completed=True, completed_at timestamp,
+    and optionally storing notes about the implementation.
+
+    Args:
+        feature_id: The ID of the feature containing the step
+        step_index: The 0-based index of the step within the feature
+        notes: Optional notes about how the step was completed
+
+    Returns:
+        JSON with the updated step progress details, or error if not found.
+    """
+    session = get_session()
+    try:
+        step = (
+            session.query(StepProgress)
+            .filter(
+                StepProgress.feature_id == feature_id,
+                StepProgress.step_index == step_index
+            )
+            .first()
+        )
+
+        if step is None:
+            return json.dumps({
+                "error": f"Step {step_index} for feature {feature_id} not found"
+            })
+
+        step.completed = True
+        step.completed_at = datetime.utcnow()
+        if notes:
+            step.notes = notes
+        session.commit()
+        session.refresh(step)
+
+        return json.dumps(step.to_dict(), indent=2)
+    finally:
+        session.close()
+
+
+@mcp.tool()
+def feature_get_progress_details(
+    feature_id: Annotated[int, Field(description="The ID of the feature to get progress details for", ge=1)]
+) -> str:
+    """Get detailed step-by-step progress for a feature.
+
+    Returns all step progress records for a feature, including completion status,
+    timestamps, and notes. Also includes summary statistics.
+
+    Args:
+        feature_id: The ID of the feature to get progress details for
+
+    Returns:
+        JSON with:
+        - steps: List of step progress objects with status and timestamps
+        - total_steps: Total number of steps in the feature
+        - completed_steps: Number of completed steps
+        - in_progress_steps: Number of steps that have started but not completed
+        - pending_steps: Number of steps not yet started
+        Or error if feature not found.
+    """
+    session = get_session()
+    try:
+        # Verify feature exists
+        feature = session.query(Feature).filter(Feature.id == feature_id).first()
+        if feature is None:
+            return json.dumps({"error": f"Feature with ID {feature_id} not found"})
+
+        # Get all steps for this feature, ordered by step_index
+        steps = (
+            session.query(StepProgress)
+            .filter(StepProgress.feature_id == feature_id)
+            .order_by(StepProgress.step_index)
+            .all()
+        )
+
+        # Calculate statistics
+        total_steps = len(steps)
+        completed_steps = sum(1 for s in steps if s.completed)
+        in_progress_steps = sum(1 for s in steps if s.started_at and not s.completed)
+        pending_steps = sum(1 for s in steps if not s.started_at)
+
+        return json.dumps({
+            "feature_id": feature_id,
+            "feature_name": feature.name,
+            "steps": [s.to_dict() for s in steps],
+            "total_steps": total_steps,
+            "completed_steps": completed_steps,
+            "in_progress_steps": in_progress_steps,
+            "pending_steps": pending_steps
+        }, indent=2)
     finally:
         session.close()
 

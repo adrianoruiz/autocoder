@@ -19,6 +19,7 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
+from agent_communication import AgentCommunicator
 from client import create_client
 from progress import has_features, print_progress_summary, print_session_header
 from prompts import (
@@ -148,6 +149,36 @@ async def run_autonomous_agent(
     # Create project directory
     project_dir.mkdir(parents=True, exist_ok=True)
 
+    # Initialize bidirectional communication
+    communicator = AgentCommunicator()
+
+    # Register message handlers
+    def handle_user_message(payload: dict) -> None:
+        """Handle user message from server."""
+        content = payload.get("content", "")
+        print(f"\n[User Message] {content}")
+        # TODO: In future, inject message into Claude conversation
+        communicator.send_chat_message(f"Received message: {content}")
+
+    def handle_command(payload: dict) -> None:
+        """Handle command from server."""
+        command = payload.get("command", "")
+        print(f"\n[Server Command] {command}")
+        # TODO: Handle commands like pause, resume, etc.
+
+    def handle_ping(payload: dict) -> None:
+        """Handle ping from server."""
+        communicator.send_pong()
+
+    communicator.register_callback("user_message", handle_user_message)
+    communicator.register_callback("command", handle_command)
+    communicator.register_callback("ping", handle_ping)
+
+    # Start listening for messages from server
+    communicator.start()
+    print(f"{prefix}Communication channel active (stdin/stdout)")
+    print()
+
     # Check if this is a fresh start or continuation
     # Uses has_features() which checks if the database actually has features,
     # not just if the file exists (empty db should still trigger initializer)
@@ -236,4 +267,6 @@ async def run_autonomous_agent(
     print("\n  Then open http://localhost:3000 (or check init.sh for the URL)")
     print("-" * 70)
 
+    # Stop communication channel
+    communicator.stop()
     print("\nDone!")

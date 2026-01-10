@@ -7,6 +7,7 @@ Provides start/stop/pause/resume functionality with cross-platform support.
 """
 
 import asyncio
+import json
 import logging
 import re
 import subprocess
@@ -78,6 +79,12 @@ class AgentProcessManager:
         # Support multiple callbacks (for multiple WebSocket clients)
         self._output_callbacks: Set[Callable[[str], Awaitable[None]]] = set()
         self._status_callbacks: Set[Callable[[str], Awaitable[None]]] = set()
+
+        # Message callbacks for agent communication
+        self._chat_callbacks: Set[Callable[[dict], Awaitable[None]]] = set()
+        self._step_update_callbacks: Set[Callable[[dict], Awaitable[None]]] = set()
+        self._narrative_callbacks: Set[Callable[[dict], Awaitable[None]]] = set()
+
         self._callbacks_lock = threading.Lock()
 
         # Lock file to prevent multiple instances (stored in project directory)
@@ -135,6 +142,36 @@ class AgentProcessManager:
         with self._callbacks_lock:
             self._status_callbacks.discard(callback)
 
+    def add_chat_callback(self, callback: Callable[[dict], Awaitable[None]]) -> None:
+        """Add a callback for agent chat messages."""
+        with self._callbacks_lock:
+            self._chat_callbacks.add(callback)
+
+    def remove_chat_callback(self, callback: Callable[[dict], Awaitable[None]]) -> None:
+        """Remove a chat callback."""
+        with self._callbacks_lock:
+            self._chat_callbacks.discard(callback)
+
+    def add_step_update_callback(self, callback: Callable[[dict], Awaitable[None]]) -> None:
+        """Add a callback for step progress updates."""
+        with self._callbacks_lock:
+            self._step_update_callbacks.add(callback)
+
+    def remove_step_update_callback(self, callback: Callable[[dict], Awaitable[None]]) -> None:
+        """Remove a step update callback."""
+        with self._callbacks_lock:
+            self._step_update_callbacks.discard(callback)
+
+    def add_narrative_callback(self, callback: Callable[[dict], Awaitable[None]]) -> None:
+        """Add a callback for agent narrative messages."""
+        with self._callbacks_lock:
+            self._narrative_callbacks.add(callback)
+
+    def remove_narrative_callback(self, callback: Callable[[dict], Awaitable[None]]) -> None:
+        """Remove a narrative callback."""
+        with self._callbacks_lock:
+            self._narrative_callbacks.discard(callback)
+
     @property
     def pid(self) -> int | None:
         return self.process.pid if self.process else None
@@ -180,6 +217,30 @@ class AgentProcessManager:
         for callback in callbacks:
             await self._safe_callback(callback, line)
 
+    async def _broadcast_chat(self, payload: dict) -> None:
+        """Broadcast chat message to all registered callbacks."""
+        with self._callbacks_lock:
+            callbacks = list(self._chat_callbacks)
+
+        for callback in callbacks:
+            await self._safe_callback(callback, payload)
+
+    async def _broadcast_step_update(self, payload: dict) -> None:
+        """Broadcast step update to all registered callbacks."""
+        with self._callbacks_lock:
+            callbacks = list(self._step_update_callbacks)
+
+        for callback in callbacks:
+            await self._safe_callback(callback, payload)
+
+    async def _broadcast_narrative(self, payload: dict) -> None:
+        """Broadcast narrative to all registered callbacks."""
+        with self._callbacks_lock:
+            callbacks = list(self._narrative_callbacks)
+
+        for callback in callbacks:
+            await self._safe_callback(callback, payload)
+
     async def _stream_output(self) -> None:
         """Stream process output to callbacks."""
         if not self.process or not self.process.stdout:
@@ -195,10 +256,44 @@ class AgentProcessManager:
                 if not line:
                     break
 
-                decoded = line.decode("utf-8", errors="replace").rstrip()
+                # Text mode Popen returns strings, not bytes
+                decoded = line.rstrip()
                 sanitized = sanitize_output(decoded)
 
-                await self._broadcast_output(sanitized)
+                # Check if this is a structured message from agent
+                if sanitized.startswith("@@MESSAGE@@"):
+                    try:
+                        # Extract JSON payload
+                        message_json = sanitized[len("@@MESSAGE@@"):]
+                        message = json.loads(message_json)
+
+                        # Validate message structure
+                        if "type" in message and "payload" in message:
+                            message_type = message["type"]
+                            payload = message["payload"]
+
+                            # Route to appropriate callback
+                            if message_type == "agent_chat_message":
+                                await self._broadcast_chat(payload)
+                            elif message_type == "step_update":
+                                await self._broadcast_step_update(payload)
+                            elif message_type == "agent_narrative":
+                                await self._broadcast_narrative(payload)
+                            elif message_type == "pong":
+                                # Keep-alive response, log but don't broadcast
+                                logger.debug("Received pong from agent")
+                            else:
+                                # Unknown message type, log as output
+                                await self._broadcast_output(sanitized)
+                        else:
+                            # Malformed message, treat as regular output
+                            await self._broadcast_output(sanitized)
+                    except json.JSONDecodeError:
+                        # Failed to parse JSON, treat as regular output
+                        await self._broadcast_output(sanitized)
+                else:
+                    # Regular output line
+                    await self._broadcast_output(sanitized)
 
         except asyncio.CancelledError:
             raise
@@ -246,13 +341,19 @@ class AgentProcessManager:
             cmd.append("--yolo")
 
         try:
-            # Start subprocess with piped stdout/stderr
+            # Start subprocess with piped stdin/stdout/stderr
+            # stdin enables bidirectional communication with agent
             # Use project_dir as cwd so Claude SDK sandbox allows access to project files
             self.process = subprocess.Popen(
                 cmd,
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 cwd=str(self.project_dir),
+                # Use text mode for easier string handling
+                text=True,
+                encoding='utf-8',
+                errors='replace',
             )
 
             self._create_lock()
@@ -311,6 +412,51 @@ class AgentProcessManager:
         except Exception as e:
             logger.exception("Failed to stop agent")
             return False, f"Failed to stop agent: {e}"
+
+    async def send_message_to_agent(
+        self,
+        message_type: str,
+        payload: dict
+    ) -> tuple[bool, str]:
+        """
+        Send a message to the running agent via stdin.
+
+        Args:
+            message_type: Type of message (e.g., "user_message", "command")
+            payload: Message payload data
+
+        Returns:
+            Tuple of (success, message)
+        """
+        if not self.process or not self.process.stdin:
+            return False, "Agent is not running or stdin not available"
+
+        try:
+            message = {
+                "type": message_type,
+                "payload": payload,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+
+            # Write to stdin with protocol prefix
+            message_json = json.dumps(message)
+            message_line = f"@@MESSAGE@@{message_json}\n"
+
+            # Use executor for blocking write
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self.process.stdin.write(message_line)
+            )
+            await loop.run_in_executor(
+                None,
+                self.process.stdin.flush
+            )
+
+            return True, f"Message sent to agent: {message_type}"
+        except Exception as e:
+            logger.exception(f"Failed to send message to agent: {e}")
+            return False, f"Failed to send message: {e}"
 
     async def pause(self) -> tuple[bool, str]:
         """

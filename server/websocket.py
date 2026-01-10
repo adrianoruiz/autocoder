@@ -191,9 +191,48 @@ async def project_websocket(websocket: WebSocket, project_name: str):
         except Exception:
             pass  # Connection may be closed
 
+    async def on_chat_message(payload: dict):
+        """Handle agent chat message - broadcast to this WebSocket."""
+        try:
+            await websocket.send_json({
+                "type": "agent_chat_message",
+                "content": payload.get("content", ""),
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception:
+            pass  # Connection may be closed
+
+    async def on_step_update(payload: dict):
+        """Handle step progress update - broadcast to this WebSocket."""
+        try:
+            await websocket.send_json({
+                "type": "step_update",
+                "feature_id": payload.get("feature_id"),
+                "step_index": payload.get("step_index"),
+                "status": payload.get("status"),
+                "notes": payload.get("notes", ""),
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception:
+            pass  # Connection may be closed
+
+    async def on_narrative(payload: dict):
+        """Handle agent narrative - broadcast to this WebSocket."""
+        try:
+            await websocket.send_json({
+                "type": "agent_narrative",
+                "content": payload.get("content", ""),
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception:
+            pass  # Connection may be closed
+
     # Register callbacks
     agent_manager.add_output_callback(on_output)
     agent_manager.add_status_callback(on_status_change)
+    agent_manager.add_chat_callback(on_chat_message)
+    agent_manager.add_step_update_callback(on_step_update)
+    agent_manager.add_narrative_callback(on_narrative)
 
     # Start progress polling task
     poll_task = asyncio.create_task(poll_progress(websocket, project_name, project_dir))
@@ -228,6 +267,21 @@ async def project_websocket(websocket: WebSocket, project_name: str):
                 if message.get("type") == "ping":
                     await websocket.send_json({"type": "pong"})
 
+                # Handle user chat message
+                elif message.get("type") == "user_chat_message":
+                    content = message.get("content", "")
+                    if content:
+                        success, msg = await agent_manager.send_message_to_agent(
+                            "user_message",
+                            {"content": content}
+                        )
+                        if not success:
+                            logger.warning(f"Failed to send chat message to agent: {msg}")
+                            await websocket.send_json({
+                                "type": "error",
+                                "message": f"Failed to send message: {msg}"
+                            })
+
             except WebSocketDisconnect:
                 break
             except json.JSONDecodeError:
@@ -247,6 +301,9 @@ async def project_websocket(websocket: WebSocket, project_name: str):
         # Unregister callbacks
         agent_manager.remove_output_callback(on_output)
         agent_manager.remove_status_callback(on_status_change)
+        agent_manager.remove_chat_callback(on_chat_message)
+        agent_manager.remove_step_update_callback(on_step_update)
+        agent_manager.remove_narrative_callback(on_narrative)
 
         # Disconnect from manager
         await manager.disconnect(websocket, project_name)

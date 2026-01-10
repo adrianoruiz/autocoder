@@ -17,6 +17,9 @@ import { AddFeaturesChat } from './components/AddFeaturesChat'
 import { FeatureModal } from './components/FeatureModal'
 import { DebugLogViewer } from './components/DebugLogViewer'
 import { AgentThought } from './components/AgentThought'
+import { CurrentStepPanel } from './components/CurrentStepPanel'
+import { LiveChatPanel } from './components/LiveChatPanel'
+import { LiveChatFAB } from './components/LiveChatFAB'
 import { AssistantFAB } from './components/AssistantFAB'
 import { AssistantPanel } from './components/AssistantPanel'
 import { ProcessManager } from './components/ProcessManager'
@@ -43,6 +46,7 @@ function App() {
   const [debugOpen, setDebugOpen] = useState(false)
   const [debugPanelHeight, setDebugPanelHeight] = useState(288) // Default height
   const [assistantOpen, setAssistantOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [typeFilter, setTypeFilter] = useState<'all' | 'feature' | 'bug'>('all')
 
@@ -117,6 +121,12 @@ function App() {
         setAssistantOpen(prev => !prev)
       }
 
+      // C : Toggle live chat panel (when project selected)
+      if ((e.key === 'c' || e.key === 'C') && selectedProject) {
+        e.preventDefault()
+        setChatOpen(prev => !prev)
+      }
+
       // I : Open Add Features with AI (when project selected)
       if ((e.key === 'i' || e.key === 'I') && selectedProject) {
         e.preventDefault()
@@ -129,6 +139,8 @@ function App() {
           setShowAddFeaturesChat(false)
         } else if (settingsOpen) {
           setSettingsOpen(false)
+        } else if (chatOpen) {
+          setChatOpen(false)
         } else if (assistantOpen) {
           setAssistantOpen(false)
         } else if (showAddFeature) {
@@ -143,7 +155,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedProject, showAddFeature, showAddFeaturesChat, selectedFeature, debugOpen, assistantOpen, settingsOpen])
+  }, [selectedProject, showAddFeature, showAddFeaturesChat, selectedFeature, debugOpen, assistantOpen, chatOpen, settingsOpen])
 
   // Combine WebSocket progress with feature data
   const progress = wsState.progress.total > 0 ? wsState.progress : {
@@ -319,6 +331,15 @@ function App() {
               agentStatus={wsState.agentStatus}
             />
 
+            {/* Current Step Panel - shows currently executing step */}
+            {wsState.agentStatus === 'running' && (
+              <CurrentStepPanel
+                projectName={selectedProject}
+                currentFeatureId={wsState.currentFeatureId}
+                stepUpdates={wsState.stepUpdates}
+              />
+            )}
+
             {/* Initializing Features State - show when agent is running but no features yet */}
             {features &&
              features.pending.length === 0 &&
@@ -339,6 +360,7 @@ function App() {
             {/* Kanban Board */}
             <KanbanBoard
               features={filteredFeatures}
+              projectName={selectedProject}
               onFeatureClick={setSelectedFeature}
             />
           </div>
@@ -408,6 +430,30 @@ function App() {
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
+
+      {/* Live Chat FAB and Panel */}
+      {selectedProject && (
+        <>
+          <LiveChatFAB
+            onClick={() => setChatOpen(!chatOpen)}
+            isOpen={chatOpen}
+          />
+
+          {/* Live Chat Panel - Right Sidebar */}
+          <div
+            className={`fixed top-0 right-0 h-screen w-[400px] bg-white border-l-4 border-[var(--color-neo-border)] shadow-[-8px_0px_0px_rgba(0,0,0,1)] z-50 transform transition-transform duration-300 ${
+              chatOpen ? 'translate-x-0' : 'translate-x-full'
+            }`}
+          >
+            <LiveChatPanel
+              chatMessages={wsState.chatMessages}
+              agentStatus={wsState.agentStatus}
+              onSendMessage={wsState.sendMessage}
+              isConnected={wsState.isConnected}
+            />
+          </div>
+        </>
+      )}
 
       {/* Process Manager - Global (always visible) */}
       <ProcessManager />

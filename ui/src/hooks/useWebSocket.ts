@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { WSMessage, AgentStatus } from '../lib/types'
+import type { WSMessage, AgentStatus, WSStepUpdateMessage } from '../lib/types'
 
 interface WebSocketState {
   progress: {
@@ -14,16 +14,26 @@ interface WebSocketState {
   }
   agentStatus: AgentStatus
   logs: Array<{ line: string; timestamp: string }>
+  chatMessages: Array<{ content: string; timestamp: string }>
+  stepUpdates: WSStepUpdateMessage[]
+  narratives: Array<{ content: string; timestamp: string }>
+  currentFeatureId: number | null
   isConnected: boolean
 }
 
 const MAX_LOGS = 100 // Keep last 100 log lines
+const MAX_CHAT_MESSAGES = 100 // Keep last 100 chat messages
+const MAX_NARRATIVES = 50 // Keep last 50 narratives
 
 export function useProjectWebSocket(projectName: string | null) {
   const [state, setState] = useState<WebSocketState>({
     progress: { passing: 0, in_progress: 0, total: 0, percentage: 0 },
     agentStatus: 'stopped',
     logs: [],
+    chatMessages: [],
+    stepUpdates: [],
+    narratives: [],
+    currentFeatureId: null,
     isConnected: false,
   })
 
@@ -82,6 +92,34 @@ export function useProjectWebSocket(projectName: string | null) {
               }))
               break
 
+            case 'agent_chat_message':
+              setState(prev => ({
+                ...prev,
+                chatMessages: [
+                  ...prev.chatMessages.slice(-MAX_CHAT_MESSAGES + 1),
+                  { content: message.content, timestamp: message.timestamp },
+                ],
+              }))
+              break
+
+            case 'step_update':
+              setState(prev => ({
+                ...prev,
+                stepUpdates: [...prev.stepUpdates, message],
+                currentFeatureId: message.feature_id,
+              }))
+              break
+
+            case 'agent_narrative':
+              setState(prev => ({
+                ...prev,
+                narratives: [
+                  ...prev.narratives.slice(-MAX_NARRATIVES + 1),
+                  { content: message.content, timestamp: message.timestamp },
+                ],
+              }))
+              break
+
             case 'feature_update':
               // Feature updates will trigger a refetch via React Query
               break
@@ -123,6 +161,16 @@ export function useProjectWebSocket(projectName: string | null) {
     }
   }, [])
 
+  // Send chat message to agent
+  const sendMessage = useCallback((content: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'user_chat_message',
+        content,
+      }))
+    }
+  }, [])
+
   // Connect when project changes
   useEffect(() => {
     if (!projectName) {
@@ -159,5 +207,6 @@ export function useProjectWebSocket(projectName: string | null) {
   return {
     ...state,
     clearLogs,
+    sendMessage,
   }
 }

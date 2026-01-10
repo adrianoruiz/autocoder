@@ -8,7 +8,7 @@ SQLite database schema for feature storage using SQLAlchemy.
 from pathlib import Path
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, Integer, String, Text, create_engine
+from sqlalchemy import Boolean, Column, Integer, String, Text, create_engine, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.types import JSON
@@ -47,6 +47,38 @@ class Feature(Base):
             "in_progress": self.in_progress,
             "label": self.label,
             "assigned_agent_id": self.assigned_agent_id,
+        }
+
+
+class StepProgress(Base):
+    """Step-level progress tracking for features."""
+
+    __tablename__ = "step_progress"
+
+    id = Column(Integer, primary_key=True, index=True)
+    feature_id = Column(Integer, ForeignKey("features.id", ondelete="CASCADE"), nullable=False, index=True)
+    step_index = Column(Integer, nullable=False)  # 0-based position
+    step_text = Column(Text, nullable=False)  # Denormalized from Feature.steps
+    completed = Column(Boolean, default=False, index=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)  # Agent's notes about the step
+
+    __table_args__ = (
+        UniqueConstraint('feature_id', 'step_index', name='_feature_step_uc'),
+    )
+
+    def to_dict(self) -> dict:
+        """Convert step progress to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "feature_id": self.feature_id,
+            "step_index": self.step_index,
+            "step_text": self.step_text,
+            "completed": self.completed,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "notes": self.notes,
         }
 
 
@@ -139,6 +171,8 @@ def create_database(project_dir: Path) -> tuple:
     Returns:
         Tuple of (engine, SessionLocal)
     """
+    from api.migration_step_progress import migrate_add_step_progress_table
+
     db_url = get_database_url(project_dir)
     engine = create_engine(db_url, connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
@@ -148,6 +182,9 @@ def create_database(project_dir: Path) -> tuple:
     _migrate_add_label_column(engine)
     _migrate_add_type_column(engine)
     _migrate_add_assigned_agent_id_column(engine)
+
+    # Migrate to add step_progress table
+    migrate_add_step_progress_table(engine)
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return engine, SessionLocal

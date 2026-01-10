@@ -94,6 +94,28 @@ export interface FeatureUpdate {
   steps?: string[]
 }
 
+// Step Progress types
+export interface StepProgress {
+  id: number
+  feature_id: number
+  step_index: number
+  step_text: string
+  completed: boolean
+  started_at: string | null
+  completed_at: string | null
+  notes: string | null
+}
+
+export interface FeatureStepsResponse {
+  feature_id: number
+  feature_name: string
+  steps: StepProgress[]
+  total_steps: number
+  completed_steps: number
+  in_progress_steps: number
+  pending_steps: number
+}
+
 // Agent types
 export type AgentStatus = 'stopped' | 'running' | 'paused' | 'crashed'
 
@@ -120,7 +142,15 @@ export interface SetupStatus {
 }
 
 // WebSocket message types
-export type WSMessageType = 'progress' | 'feature_update' | 'log' | 'agent_status' | 'pong'
+export type WSMessageType =
+  | 'progress'
+  | 'feature_update'
+  | 'log'
+  | 'agent_status'
+  | 'agent_chat_message'
+  | 'step_update'
+  | 'agent_narrative'
+  | 'pong'
 
 export interface WSProgressMessage {
   type: 'progress'
@@ -147,6 +177,27 @@ export interface WSAgentStatusMessage {
   status: AgentStatus
 }
 
+export interface WSAgentChatMessage {
+  type: 'agent_chat_message'
+  content: string
+  timestamp: string
+}
+
+export interface WSStepUpdateMessage {
+  type: 'step_update'
+  feature_id: number
+  step_index: number
+  status: 'started' | 'completed'
+  notes: string
+  timestamp: string
+}
+
+export interface WSAgentNarrativeMessage {
+  type: 'agent_narrative'
+  content: string
+  timestamp: string
+}
+
 export interface WSPongMessage {
   type: 'pong'
 }
@@ -156,6 +207,9 @@ export type WSMessage =
   | WSFeatureUpdateMessage
   | WSLogMessage
   | WSAgentStatusMessage
+  | WSAgentChatMessage
+  | WSStepUpdateMessage
+  | WSAgentNarrativeMessage
   | WSPongMessage
 
 // ============================================================================
