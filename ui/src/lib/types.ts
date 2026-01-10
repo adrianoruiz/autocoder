@@ -92,6 +92,7 @@ export interface AgentStatusResponse {
   pid: number | null
   started_at: string | null
   yolo_mode: boolean
+  model: string | null
 }
 
 export interface AgentActionResponse {
@@ -358,4 +359,28 @@ export interface FeatureLabel {
   passing: number
   pending: number
   in_progress: number
+}
+
+// ============================================================================
+// Settings Types
+// ============================================================================
+
+export interface ModelInfo {
+  id: string
+  name: string
+}
+
+export interface SettingsResponse {
+  yolo_mode: boolean
+  model: string
+}
+
+export interface ModelsResponse {
+  models: ModelInfo[]
+  default: string
+}
+
+export interface SettingsUpdate {
+  yolo_mode?: boolean
+  model?: string
 }

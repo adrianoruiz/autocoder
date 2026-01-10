@@ -16,6 +16,9 @@ import type {
   PathValidationResponse,
   AssistantConversation,
   AssistantConversationDetail,
+  SettingsResponse,
+  SettingsUpdate,
+  ModelsResponse,
 } from './types'
 
 const API_BASE = '/api'
@@ -139,11 +142,15 @@ export async function getAgentStatus(projectName: string): Promise<AgentStatusRe
 
 export async function startAgent(
   projectName: string,
-  yoloMode: boolean = false
+  yoloMode?: boolean,
+  model?: string
 ): Promise<AgentActionResponse> {
   return fetchJSON(`/projects/${encodeURIComponent(projectName)}/agent/start`, {
     method: 'POST',
-    body: JSON.stringify({ yolo_mode: yoloMode }),
+    body: JSON.stringify({
+      yolo_mode: yoloMode,
+      model: model,
+    }),
   })
 }
 
@@ -284,4 +291,23 @@ export async function deleteAssistantConversation(
     `/assistant/conversations/${encodeURIComponent(projectName)}/${conversationId}`,
     { method: 'DELETE' }
   )
+}
+
+// ============================================================================
+// Settings API
+// ============================================================================
+
+export async function getSettings(): Promise<SettingsResponse> {
+  return fetchJSON('/settings')
+}
+
+export async function getAvailableModels(): Promise<ModelsResponse> {
+  return fetchJSON('/settings/models')
+}
+
+export async function updateSettings(settings: SettingsUpdate): Promise<SettingsResponse> {
+  return fetchJSON('/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
+  })
 }

@@ -21,7 +21,8 @@ import { AssistantFAB } from './components/AssistantFAB'
 import { AssistantPanel } from './components/AssistantPanel'
 import { ProcessManager } from './components/ProcessManager'
 import { OpenInIDEButton } from './components/OpenInIDEButton'
-import { Plus, Loader2, Sparkles } from 'lucide-react'
+import SettingsModal from './components/SettingsModal'
+import { Plus, Loader2, Sparkles, Settings } from 'lucide-react'
 import type { Feature } from './lib/types'
 
 function App() {
@@ -42,6 +43,7 @@ function App() {
   const [debugOpen, setDebugOpen] = useState(false)
   const [debugPanelHeight, setDebugPanelHeight] = useState(288) // Default height
   const [assistantOpen, setAssistantOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const { data: projects, isLoading: projectsLoading } = useProjects()
   const { data: features } = useFeatures(selectedProject)
@@ -111,6 +113,8 @@ function App() {
       if (e.key === 'Escape') {
         if (showAddFeaturesChat) {
           setShowAddFeaturesChat(false)
+        } else if (settingsOpen) {
+          setSettingsOpen(false)
         } else if (assistantOpen) {
           setAssistantOpen(false)
         } else if (showAddFeature) {
@@ -125,7 +129,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedProject, showAddFeature, showAddFeaturesChat, selectedFeature, debugOpen, assistantOpen])
+  }, [selectedProject, showAddFeature, showAddFeaturesChat, selectedFeature, debugOpen, assistantOpen, settingsOpen])
 
   // Combine WebSocket progress with feature data
   const progress = wsState.progress.total > 0 ? wsState.progress : {
@@ -146,16 +150,15 @@ function App() {
     <div className="min-h-screen bg-[var(--color-neo-bg)]">
       {/* Header */}
       <header className="bg-[var(--color-neo-text)] text-white border-b-4 border-[var(--color-neo-border)]">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo and Title */}
-            <h1 className="font-display text-2xl font-bold tracking-tight uppercase">
-              {t('app.title')}
-            </h1>
-
-            {/* Controls */}
+        <div className="max-w-7xl mx-auto px-4">
+          {/* Top Row: Branding + Global Settings */}
+          <div className="flex items-center justify-between py-3 border-b border-white/10">
             <div className="flex items-center gap-4">
-              <LanguageSelector />
+              <h1 className="font-display text-2xl font-bold tracking-tight uppercase">
+                {t('app.title')}
+              </h1>
+
+              <div className="w-px h-6 bg-white/20" />
 
               <ProjectSelector
                 projects={projects ?? []}
@@ -163,44 +166,71 @@ function App() {
                 onSelectProject={handleSelectProject}
                 isLoading={projectsLoading}
               />
+            </div>
 
-              {selectedProject && (
-                <>
-                  <OpenInIDEButton projectName={selectedProject} />
+            <div className="flex items-center gap-2">
+              <LanguageSelector />
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="neo-btn bg-white text-[var(--color-neo-text)] border-2 border-[var(--color-neo-border)] hover:bg-gray-50 transition-all text-sm px-3 py-2"
+                title="Settings"
+              >
+                <Settings size={18} />
+              </button>
+            </div>
+          </div>
 
+          {/* Bottom Row: Project Actions */}
+          {selectedProject && (
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-4">
+                {/* Add Features */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-display font-bold uppercase text-white/60">
+                    Add:
+                  </span>
                   <button
                     onClick={() => setShowAddFeaturesChat(true)}
-                    className="neo-btn bg-gradient-to-r from-purple-500 to-pink-500 text-white border-2 border-[var(--color-neo-border)] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-sm"
+                    className="neo-btn bg-gradient-to-r from-purple-500 to-pink-500 text-white border-2 border-[var(--color-neo-border)] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-sm whitespace-nowrap"
                     title="Add Features with AI (Press I)"
                   >
-                    <Sparkles size={18} />
-                    Add with AI
-                    <kbd className="ml-1.5 px-1.5 py-0.5 text-xs bg-black/20 rounded font-mono">
+                    <Sparkles size={16} />
+                    AI
+                    <kbd className="ml-1 px-1 py-0.5 text-xs bg-black/20 rounded font-mono">
                       I
                     </kbd>
                   </button>
 
                   <button
                     onClick={() => setShowAddFeature(true)}
-                    className="neo-btn neo-btn-primary text-sm"
-                    title="Press N"
+                    className="neo-btn neo-btn-primary text-sm whitespace-nowrap"
+                    title="Add Feature (Press N)"
                   >
-                    <Plus size={18} />
-                    {t('app.addFeature')}
-                    <kbd className="ml-1.5 px-1.5 py-0.5 text-xs bg-black/20 rounded font-mono">
-                      {t('app.shortcutN')}
+                    <Plus size={16} />
+                    Feature
+                    <kbd className="ml-1 px-1 py-0.5 text-xs bg-black/20 rounded font-mono">
+                      N
                     </kbd>
                   </button>
+                </div>
 
+                <div className="w-px h-6 bg-white/20" />
+
+                {/* Agent Control */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-display font-bold uppercase text-white/60">
+                    Agent:
+                  </span>
+                  <OpenInIDEButton projectName={selectedProject} />
                   <AgentControl
                     projectName={selectedProject}
                     status={wsState.agentStatus}
                     yoloMode={agentStatusData?.yolo_mode ?? false}
                   />
-                </>
-              )}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </header>
 
@@ -317,6 +347,12 @@ function App() {
           />
         </>
       )}
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
 
       {/* Process Manager - Global (always visible) */}
       <ProcessManager />

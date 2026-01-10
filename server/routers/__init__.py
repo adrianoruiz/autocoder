@@ -12,6 +12,7 @@ from .features import router as features_router
 from .filesystem import router as filesystem_router
 from .processes import router as processes_router
 from .projects import router as projects_router
+from .settings import router as settings_router
 from .spec_creation import router as spec_creation_router
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "filesystem_router",
     "assistant_chat_router",
     "processes_router",
+    "settings_router",
 ]
