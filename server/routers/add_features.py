@@ -178,6 +178,7 @@ async def add_features_websocket(websocket: WebSocket, project_name: str):
                             continue
 
                     user_content = message.get("content", "").strip()
+                    feature_type = message.get("feature_type", "feature")  # Extract feature type
 
                     # Parse attachments if present
                     attachments: list[ImageAttachment] = []
@@ -202,8 +203,16 @@ async def add_features_websocket(websocket: WebSocket, project_name: str):
                         })
                         continue
 
+                    # Prepend type context to help Claude understand intent
+                    if feature_type == "bug":
+                        # Add context that user wants to report bugs
+                        contextual_message = f"[User wants to report bugs/issues] {user_content}" if user_content else "[User wants to report bugs/issues (see attached screenshots)]"
+                    else:
+                        # Default to features
+                        contextual_message = user_content
+
                     # Stream Claude's response
-                    async for chunk in session.send_message(user_content, attachments if attachments else None):
+                    async for chunk in session.send_message(contextual_message, attachments if attachments else None):
                         await websocket.send_json(chunk)
 
                 elif msg_type == "answer":

@@ -68,6 +68,7 @@ class RegressionInput(BaseModel):
 
 class FeatureCreateItem(BaseModel):
     """Schema for creating a single feature."""
+    type: str = Field(default="feature", description="Feature type: 'feature' or 'bug'")
     category: str = Field(..., min_length=1, max_length=100, description="Feature category")
     name: str = Field(..., min_length=1, max_length=255, description="Feature name")
     description: str = Field(..., min_length=1, description="Detailed description")
@@ -374,6 +375,7 @@ def feature_create_bulk(
 
     Args:
         features: List of features to create, each with:
+            - type (str, optional): 'feature' or 'bug' (defaults to 'feature')
             - category (str): Feature category
             - name (str): Feature name
             - description (str): Detailed description
@@ -397,8 +399,19 @@ def feature_create_bulk(
                     "error": f"Feature at index {i} missing required fields (category, name, description, steps)"
                 })
 
+            # Get type from feature_data, default to 'feature'
+            feature_type = feature_data.get("type", "feature")
+
+            # Calculate priority with boost for bugs
+            base_priority = start_priority + i
+            if feature_type == "bug":
+                priority = base_priority - 500  # Bugs get higher priority (lower number)
+            else:
+                priority = base_priority
+
             db_feature = Feature(
-                priority=start_priority + i,
+                priority=priority,
+                type=feature_type,
                 category=feature_data["category"],
                 name=feature_data["name"],
                 description=feature_data["description"],

@@ -24,7 +24,7 @@ interface UseAddFeaturesChatReturn {
   currentToolId: string | null
   featuresCreated: number
   start: () => void
-  sendMessage: (content: string, attachments?: ImageAttachment[]) => void
+  sendMessage: (content: string, attachments?: ImageAttachment[], type?: 'feature' | 'bug') => void
   sendAnswer: (answers: Record<string, string | string[]>) => void
   markDone: () => void
   disconnect: () => void
@@ -300,7 +300,7 @@ export function useAddFeaturesChat({
     setTimeout(checkAndSend, 100)
   }, [connect])
 
-  const sendMessage = useCallback((content: string, attachments?: ImageAttachment[]) => {
+  const sendMessage = useCallback((content: string, attachments?: ImageAttachment[], featureType: 'feature' | 'bug' = 'feature') => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       onError?.('Not connected')
       return
@@ -324,9 +324,15 @@ export function useAddFeaturesChat({
     setIsLoading(true)
 
     // Build message payload
-    const payload: { type: string; content: string; attachments?: Array<{ filename: string; mimeType: string; base64Data: string }> } = {
+    const payload: {
+      type: string;
+      content: string;
+      feature_type?: 'feature' | 'bug';
+      attachments?: Array<{ filename: string; mimeType: string; base64Data: string }>
+    } = {
       type: 'message',
       content,
+      feature_type: featureType,
     }
 
     // Add attachments if present (send base64 data, not preview URL)

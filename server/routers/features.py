@@ -84,6 +84,7 @@ def feature_to_response(f) -> FeatureResponse:
     return FeatureResponse(
         id=f.id,
         priority=f.priority,
+        type=f.type,
         category=f.category,
         name=f.name,
         description=f.description,
@@ -94,7 +95,7 @@ def feature_to_response(f) -> FeatureResponse:
 
 
 @router.get("", response_model=FeatureListResponse)
-async def list_features(project_name: str):
+async def list_features(project_name: str, type: str | None = None):
     """
     List all features for a project organized by status.
 
@@ -102,6 +103,9 @@ async def list_features(project_name: str):
     - pending: passes=False, not currently being worked on
     - in_progress: features currently being worked on (tracked via agent output)
     - done: passes=True
+
+    Args:
+        type: Optional filter for 'feature' or 'bug'
     """
     project_name = validate_project_name(project_name)
     project_dir = _get_project_path(project_name)
@@ -112,6 +116,10 @@ async def list_features(project_name: str):
     if not project_dir.exists():
         raise HTTPException(status_code=404, detail="Project directory not found")
 
+    # Validate type parameter if provided
+    if type and type not in ['feature', 'bug']:
+        raise HTTPException(status_code=400, detail="type must be 'feature' or 'bug'")
+
     db_file = project_dir / "features.db"
     if not db_file.exists():
         return FeatureListResponse(pending=[], in_progress=[], done=[])
@@ -120,7 +128,13 @@ async def list_features(project_name: str):
 
     try:
         with get_db_session(project_dir) as session:
-            all_features = session.query(Feature).order_by(Feature.priority).all()
+            query = session.query(Feature).order_by(Feature.priority)
+
+            # Filter by type if specified
+            if type:
+                query = query.filter(Feature.type == type)
+
+            all_features = query.all()
 
             pending = []
             in_progress = []
@@ -170,9 +184,14 @@ async def create_feature(project_name: str, feature: FeatureCreate):
             else:
                 priority = feature.priority
 
+            # Apply priority boost for bugs (-500 to prioritize them)
+            if feature.type == 'bug':
+                priority -= 500
+
             # Create new feature
             db_feature = Feature(
                 priority=priority,
+                type=feature.type,
                 category=feature.category,
                 name=feature.name,
                 description=feature.description,

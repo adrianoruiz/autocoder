@@ -60,6 +60,7 @@ export interface ProjectPrompts {
 export interface Feature {
   id: number
   priority: number
+  type: 'feature' | 'bug'
   category: string
   name: string
   description: string
@@ -76,6 +77,7 @@ export interface FeatureListResponse {
 }
 
 export interface FeatureCreate {
+  type?: 'feature' | 'bug'  // Defaults to 'feature'
   category: string
   name: string
   description: string

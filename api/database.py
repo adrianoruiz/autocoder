@@ -23,6 +23,7 @@ class Feature(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     priority = Column(Integer, nullable=False, default=999, index=True)
+    type = Column(String(20), nullable=False, default='feature', index=True)  # 'feature' or 'bug'
     category = Column(String(100), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
@@ -36,6 +37,7 @@ class Feature(Base):
         return {
             "id": self.id,
             "priority": self.priority,
+            "type": self.type,
             "category": self.category,
             "name": self.name,
             "description": self.description,
@@ -90,6 +92,26 @@ def _migrate_add_label_column(engine) -> None:
             conn.commit()
 
 
+def _migrate_add_type_column(engine) -> None:
+    """Add type column to existing databases that don't have it."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        # Check if column exists
+        result = conn.execute(text("PRAGMA table_info(features)"))
+        columns = [row[1] for row in result.fetchall()]
+
+        if "type" not in columns:
+            # Add the column with default 'feature'
+            conn.execute(text("ALTER TABLE features ADD COLUMN type VARCHAR(20) DEFAULT 'feature' NOT NULL"))
+            # Create index for better query performance
+            try:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_features_type ON features (type)"))
+            except Exception:
+                pass  # Index might already exist
+            conn.commit()
+
+
 def create_database(project_dir: Path) -> tuple:
     """
     Create database and return engine + session maker.
@@ -107,6 +129,7 @@ def create_database(project_dir: Path) -> tuple:
     # Migrate existing databases to add new columns
     _migrate_add_in_progress_column(engine)
     _migrate_add_label_column(engine)
+    _migrate_add_type_column(engine)
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return engine, SessionLocal

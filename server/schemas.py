@@ -84,6 +84,7 @@ class FeatureBase(BaseModel):
 
 class FeatureCreate(FeatureBase):
     """Request schema for creating a new feature."""
+    type: Literal["feature", "bug"] = "feature"
     priority: int | None = None
 
 
@@ -91,6 +92,7 @@ class FeatureResponse(FeatureBase):
     """Response schema for a feature."""
     id: int
     priority: int
+    type: str
     passes: bool
     in_progress: bool
 

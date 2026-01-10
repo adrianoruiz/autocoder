@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProjects, useFeatures, useAgentStatus } from './hooks/useProjects'
 import { useProjectWebSocket } from './hooks/useWebSocket'
@@ -44,6 +44,7 @@ function App() {
   const [debugPanelHeight, setDebugPanelHeight] = useState(288) // Default height
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [typeFilter, setTypeFilter] = useState<'all' | 'feature' | 'bug'>('all')
 
   const { data: projects, isLoading: projectsLoading } = useProjects()
   const { data: features } = useFeatures(selectedProject)
@@ -55,6 +56,19 @@ function App() {
 
   // Celebrate when all features are complete
   useCelebration(features, selectedProject)
+
+  // Filter features by type
+  const filteredFeatures = useMemo(() => {
+    if (!features) return { pending: [], in_progress: [], done: [] }
+
+    if (typeFilter === 'all') return features
+
+    return {
+      pending: features.pending.filter(f => f.type === typeFilter),
+      in_progress: features.in_progress.filter(f => f.type === typeFilter),
+      done: features.done.filter(f => f.type === typeFilter)
+    }
+  }, [features, typeFilter])
 
   // Persist selected project to localStorage
   const handleSelectProject = useCallback((project: string | null) => {
@@ -182,53 +196,94 @@ function App() {
 
           {/* Bottom Row: Project Actions */}
           {selectedProject && (
-            <div className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-4">
-                {/* Add Features */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-display font-bold uppercase text-white/60">
-                    Add:
-                  </span>
-                  <button
-                    onClick={() => setShowAddFeaturesChat(true)}
-                    className="neo-btn bg-gradient-to-r from-purple-500 to-pink-500 text-white border-2 border-[var(--color-neo-border)] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-sm whitespace-nowrap"
-                    title="Add Features with AI (Press I)"
-                  >
-                    <Sparkles size={16} />
-                    AI
-                    <kbd className="ml-1 px-1 py-0.5 text-xs bg-black/20 rounded font-mono">
-                      I
-                    </kbd>
-                  </button>
+            <div className="flex flex-col gap-3 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {/* Add Features */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-display font-bold uppercase text-white/60">
+                      Add:
+                    </span>
+                    <button
+                      onClick={() => setShowAddFeaturesChat(true)}
+                      className="neo-btn bg-gradient-to-r from-purple-500 to-pink-500 text-white border-2 border-[var(--color-neo-border)] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-sm whitespace-nowrap"
+                      title="Add Features with AI (Press I)"
+                    >
+                      <Sparkles size={16} />
+                      AI
+                      <kbd className="ml-1 px-1 py-0.5 text-xs bg-black/20 rounded font-mono">
+                        I
+                      </kbd>
+                    </button>
 
-                  <button
-                    onClick={() => setShowAddFeature(true)}
-                    className="neo-btn neo-btn-primary text-sm whitespace-nowrap"
-                    title="Add Feature (Press N)"
-                  >
-                    <Plus size={16} />
-                    Feature
-                    <kbd className="ml-1 px-1 py-0.5 text-xs bg-black/20 rounded font-mono">
-                      N
-                    </kbd>
-                  </button>
-                </div>
+                    <button
+                      onClick={() => setShowAddFeature(true)}
+                      className="neo-btn neo-btn-primary text-sm whitespace-nowrap"
+                      title="Add Feature (Press N)"
+                    >
+                      <Plus size={16} />
+                      Feature
+                      <kbd className="ml-1 px-1 py-0.5 text-xs bg-black/20 rounded font-mono">
+                        N
+                      </kbd>
+                    </button>
+                  </div>
 
-                <div className="w-px h-6 bg-white/20" />
+                  <div className="w-px h-6 bg-white/20" />
 
-                {/* Agent Control */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-display font-bold uppercase text-white/60">
-                    Agent:
-                  </span>
-                  <OpenInIDEButton projectName={selectedProject} />
-                  <AgentControl
-                    projectName={selectedProject}
-                    status={wsState.agentStatus}
-                    yoloMode={agentStatusData?.yolo_mode ?? false}
-                  />
+                  {/* Agent Control */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-display font-bold uppercase text-white/60">
+                      Agent:
+                    </span>
+                    <OpenInIDEButton projectName={selectedProject} />
+                    <AgentControl
+                      projectName={selectedProject}
+                      status={wsState.agentStatus}
+                      yoloMode={agentStatusData?.yolo_mode ?? false}
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* Type Filter Row */}
+              {features && (features.pending.length > 0 || features.in_progress.length > 0 || features.done.length > 0) && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-display font-bold uppercase text-white/60">
+                    View:
+                  </span>
+                  <button
+                    onClick={() => setTypeFilter('all')}
+                    className={`neo-btn text-xs px-3 py-1 transition-all ${
+                      typeFilter === 'all'
+                        ? 'bg-[var(--color-neo-accent)] text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setTypeFilter('feature')}
+                    className={`neo-btn text-xs px-3 py-1 transition-all ${
+                      typeFilter === 'feature'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    ✨ Features
+                  </button>
+                  <button
+                    onClick={() => setTypeFilter('bug')}
+                    className={`neo-btn text-xs px-3 py-1 transition-all ${
+                      typeFilter === 'bug'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    🐛 Bugs
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -283,7 +338,7 @@ function App() {
 
             {/* Kanban Board */}
             <KanbanBoard
-              features={features}
+              features={filteredFeatures}
               onFeatureClick={setSelectedFeature}
             />
           </div>

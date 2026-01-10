@@ -31,6 +31,7 @@ export function AddFeaturesChat({
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pendingAttachments, setPendingAttachments] = useState<ImageAttachment[]>([])
+  const [createType, setCreateType] = useState<'feature' | 'bug'>('feature')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -88,7 +89,7 @@ export function AddFeaturesChat({
     // Allow sending if there's text OR attachments
     if ((!trimmed && pendingAttachments.length === 0) || isLoading) return
 
-    sendMessage(trimmed, pendingAttachments.length > 0 ? pendingAttachments : undefined)
+    sendMessage(trimmed, pendingAttachments.length > 0 ? pendingAttachments : undefined, createType)
     setInput('')
     setPendingAttachments([]) // Clear attachments after sending
   }
@@ -201,36 +202,65 @@ export function AddFeaturesChat({
   return (
     <div className="flex flex-col h-full bg-[var(--color-neo-bg)]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b-3 border-[var(--color-neo-border)] bg-white">
-        <div className="flex items-center gap-3">
-          <Sparkles size={20} className="text-[var(--color-neo-primary)]" />
-          <h2 className="font-display font-bold text-lg text-[#1a1a1a]">
-            Add Features: {projectName}
-          </h2>
-          <ConnectionIndicator />
+      <div className="border-b-3 border-[var(--color-neo-border)] bg-white">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <Sparkles size={20} className="text-[var(--color-neo-primary)]" />
+            <h2 className="font-display font-bold text-lg text-[#1a1a1a]">
+              Add {createType === 'bug' ? 'Bugs' : 'Features'}: {projectName}
+            </h2>
+            <ConnectionIndicator />
+          </div>
+
+          <div className="flex items-center gap-2">
+            {featuresCreated > 0 && (
+              <span className="flex items-center gap-1 text-sm text-[var(--color-neo-done)] font-bold">
+                <CheckCircle2 size={16} />
+                {featuresCreated} created
+              </span>
+            )}
+
+            {isComplete && (
+              <span className="flex items-center gap-1 text-sm text-[var(--color-neo-done)] font-bold">
+                <CheckCircle2 size={16} />
+                Complete
+              </span>
+            )}
+
+            <button
+              onClick={onClose}
+              className="neo-btn neo-btn-ghost p-2"
+              title="Close"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {featuresCreated > 0 && (
-            <span className="flex items-center gap-1 text-sm text-[var(--color-neo-done)] font-bold">
-              <CheckCircle2 size={16} />
-              {featuresCreated} created
-            </span>
-          )}
-
-          {isComplete && (
-            <span className="flex items-center gap-1 text-sm text-[var(--color-neo-done)] font-bold">
-              <CheckCircle2 size={16} />
-              Complete
-            </span>
-          )}
-
+        {/* Type selector */}
+        <div className="flex items-center gap-2 px-4 pb-3">
+          <span className="text-xs font-display font-bold uppercase text-[#1a1a1a]/60">
+            Type:
+          </span>
           <button
-            onClick={onClose}
-            className="neo-btn neo-btn-ghost p-2"
-            title="Close"
+            onClick={() => setCreateType('feature')}
+            className={`neo-btn text-xs px-3 py-1 transition-all ${
+              createType === 'feature'
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
           >
-            <X size={20} />
+            ✨ Features
+          </button>
+          <button
+            onClick={() => setCreateType('bug')}
+            className={`neo-btn text-xs px-3 py-1 transition-all ${
+              createType === 'bug'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            🐛 Bugs
           </button>
         </div>
       </div>
@@ -256,10 +286,10 @@ export function AddFeaturesChat({
             <div className="neo-card p-6 max-w-md">
               <Sparkles size={32} className="mx-auto mb-3 text-[var(--color-neo-primary)]" />
               <h3 className="font-display font-bold text-lg mb-2">
-                Add Features with AI
+                Add {createType === 'bug' ? 'Bugs' : 'Features'} with AI
               </h3>
               <p className="text-sm text-[var(--color-neo-text-secondary)]">
-                Connecting to Claude to help you add new features to your project...
+                Connecting to Claude to help you add new {createType === 'bug' ? 'bugs' : 'features'} to your project...
               </p>
               {connectionStatus === 'error' && (
                 <button
@@ -363,7 +393,9 @@ export function AddFeaturesChat({
                   ? 'Or type a custom response...'
                   : pendingAttachments.length > 0
                     ? 'Add a message with your image(s)...'
-                    : 'Describe the features you want to add...'
+                    : createType === 'bug'
+                      ? 'Describe the bug or attach a screenshot...'
+                      : 'Describe the features you want to add...'
               }
               className="neo-input flex-1"
               disabled={(isLoading && !currentQuestions) || connectionStatus !== 'connected'}

@@ -41,12 +41,24 @@ export function FeatureCard({ feature, onClick, isInProgress }: FeatureCardProps
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
-        <span
-          className="neo-badge"
-          style={{ backgroundColor: categoryColor, color: 'white' }}
-        >
-          {feature.category}
-        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className="neo-badge"
+            style={{ backgroundColor: categoryColor, color: 'white' }}
+          >
+            {feature.category}
+          </span>
+          {/* Type badge */}
+          <span
+            className={`neo-badge text-xs ${
+              feature.type === 'bug'
+                ? 'bg-red-600 text-white'
+                : 'bg-green-600 text-white'
+            }`}
+          >
+            {feature.type === 'bug' ? '🐛 BUG' : '✨ FEATURE'}
+          </span>
+        </div>
         <span className="font-mono text-sm text-[var(--color-neo-text-secondary)]">
           #{feature.priority}
         </span>
