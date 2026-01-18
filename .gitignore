@@ -131,6 +131,7 @@ Pipfile.lock
 # ===================
 # Misc
 # ===================
+.playwright-mcp/
 *.bak
 *.tmp
 *.temp

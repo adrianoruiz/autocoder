@@ -450,6 +450,7 @@ function App() {
               agentStatus={wsState.agentStatus}
               onSendMessage={wsState.sendMessage}
               isConnected={wsState.isConnected}
+              onClose={() => setChatOpen(false)}
             />
           </div>
         </>

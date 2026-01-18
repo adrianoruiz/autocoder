@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, MessageSquare, Circle } from 'lucide-react'
+import { Send, MessageSquare, Circle, X } from 'lucide-react'
 import type { AgentStatus } from '../lib/types'
 
 interface LiveChatPanelProps {
@@ -7,6 +7,7 @@ interface LiveChatPanelProps {
   agentStatus: AgentStatus
   onSendMessage: (message: string) => void
   isConnected: boolean
+  onClose: () => void
 }
 
 export function LiveChatPanel({
@@ -14,6 +15,7 @@ export function LiveChatPanel({
   agentStatus,
   onSendMessage,
   isConnected,
+  onClose,
 }: LiveChatPanelProps) {
   const [message, setMessage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -53,23 +55,32 @@ export function LiveChatPanel({
             </h2>
           </div>
 
-          {/* Status Indicator */}
-          <div className="flex items-center gap-2">
-            <Circle
-              size={12}
-              className={`${
-                agentStatus === 'running' && isConnected
-                  ? 'fill-green-400 text-green-400 animate-pulse'
-                  : 'fill-gray-400 text-gray-400'
-              }`}
-            />
-            <span className="text-xs font-mono text-white">
-              {agentStatus === 'running' && isConnected
-                ? 'Active'
-                : agentStatus === 'running'
-                ? 'Connecting...'
-                : 'Inactive'}
-            </span>
+          {/* Status Indicator + Close Button */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Circle
+                size={12}
+                className={`${
+                  agentStatus === 'running' && isConnected
+                    ? 'fill-green-400 text-green-400 animate-pulse'
+                    : 'fill-gray-400 text-gray-400'
+                }`}
+              />
+              <span className="text-xs font-mono text-white">
+                {agentStatus === 'running' && isConnected
+                  ? 'Active'
+                  : agentStatus === 'running'
+                  ? 'Connecting...'
+                  : 'Inactive'}
+              </span>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-white/20 rounded transition-colors"
+              title="Close chat (Press C or Esc)"
+            >
+              <X size={20} className="text-white" />
+            </button>
           </div>
         </div>
       </div>

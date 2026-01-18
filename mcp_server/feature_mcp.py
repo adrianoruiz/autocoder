@@ -28,6 +28,34 @@ from pathlib import Path
 from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
+
+
+def send_step_update_message(feature_id: int, step_index: int, status: str, notes: str = "") -> None:
+    """
+    Send a step update message via stdout using the @@MESSAGE@@ protocol.
+
+    This notifies the ProcessManager to broadcast the update via WebSocket to the UI.
+
+    Args:
+        feature_id: ID of the feature
+        step_index: Index of the step (0-based)
+        status: "started" or "completed"
+        notes: Optional notes about the step
+    """
+    message = {
+        "type": "step_update",
+        "payload": {
+            "feature_id": feature_id,
+            "step_index": step_index,
+            "status": status,
+            "notes": notes
+        },
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+    # Write to stdout with protocol prefix
+    message_json = json.dumps(message)
+    print(f"@@MESSAGE@@{message_json}", flush=True)
 from pydantic import BaseModel, Field
 from sqlalchemy.sql.expression import func
 
@@ -856,6 +884,9 @@ def feature_step_mark_started(
         session.commit()
         session.refresh(step)
 
+        # Send WebSocket update
+        send_step_update_message(feature_id, step_index, "started")
+
         return json.dumps(step.to_dict(), indent=2)
     finally:
         session.close()
@@ -902,6 +933,9 @@ def feature_step_mark_completed(
             step.notes = notes
         session.commit()
         session.refresh(step)
+
+        # Send WebSocket update
+        send_step_update_message(feature_id, step_index, "completed", notes or "")
 
         return json.dumps(step.to_dict(), indent=2)
     finally:

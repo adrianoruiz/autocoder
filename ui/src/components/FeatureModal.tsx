@@ -251,23 +251,22 @@ export function FeatureModal({ feature, projectName, onClose }: FeatureModalProp
           </div>
 
           {/* Steps */}
-          {(isEditMode || feature.steps.length > 0) && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-display font-bold uppercase text-sm">
-                  Test Steps
-                </h3>
-                {isEditMode && (
-                  <button
-                    onClick={handleAddStep}
-                    className="neo-btn neo-btn-sm neo-btn-primary"
-                  >
-                    <Plus size={16} />
-                    Add Step
-                  </button>
-                )}
-              </div>
-              {isEditMode ? (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-display font-bold uppercase text-sm">
+                Test Steps
+              </h3>
+              {isEditMode && (
+                <button
+                  onClick={handleAddStep}
+                  className="neo-btn neo-btn-sm neo-btn-primary"
+                >
+                  <Plus size={16} />
+                  Add Step
+                </button>
+              )}
+            </div>
+            {isEditMode ? (
                 <div className="space-y-2">
                   {editSteps.map((step, index) => (
                     <div key={step.id} className="flex gap-2">
@@ -333,7 +332,7 @@ export function FeatureModal({ feature, projectName, onClose }: FeatureModalProp
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : feature.steps.length > 0 ? (
                 <ol className="list-decimal list-inside space-y-2">
                   {feature.steps.map((step, index) => (
                     <li
@@ -344,9 +343,17 @@ export function FeatureModal({ feature, projectName, onClose }: FeatureModalProp
                     </li>
                   ))}
                 </ol>
+              ) : (
+                <div className="p-4 bg-yellow-50 border-3 border-yellow-400 text-yellow-800">
+                  <p className="font-mono text-sm">
+                    ⚠️ No test steps defined. Click "Edit" to add steps.
+                  </p>
+                  <p className="text-xs mt-1">
+                    Steps are required for the agent to track progress.
+                  </p>
+                </div>
               )}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Actions */}
